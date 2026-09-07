@@ -68,6 +68,8 @@ MONITORS_FILE = DATA_DIR / "monitors.json"
 BACKUPS_DIR = DATA_DIR / "backups"
 COMPLETED_JOBS_FILE = DATA_DIR / "completed_jobs.json"
 ACTIVE_JOBS_FILE = DATA_DIR / "active_jobs.json"
+WORDLISTS_DIR = DATA_DIR / "wordlists"
+RESOLVERS_FILE = DATA_DIR / "resolvers.txt"
 
 # Nuclei templates shipped with this repo: CVEs that have no template in the
 # official projectdiscovery/nuclei-templates repo. Run alongside the defaults.
@@ -572,6 +574,7 @@ def ensure_dirs() -> None:
     HISTORY_DIR.mkdir(parents=True, exist_ok=True)
     SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
     BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    WORDLISTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ================== SQLite DATABASE ====================
@@ -1806,6 +1809,7 @@ def default_config() -> Dict[str, Any]:
         "enable_screenshots": True,
         "enable_amass": True,
         "amass_timeout": 600,
+        "dns_resolvers": [],
         "enable_subfinder": True,
         "enable_assetfinder": True,
         "enable_findomain": True,
@@ -3348,6 +3352,129 @@ def _normalize_tld_list(value: Any) -> List[str]:
     return result
 
 
+def _normalize_resolver_list(value: Any) -> List[str]:
+    """
+    解析 DNS resolver 列表. 接受逗号/空白/换行分隔的字符串或 list.
+
+    Args:
+        value: 原始配置值.
+
+    Returns:
+        List[str]: 去重后的 resolver, 形如 10.0.0.1 或 10.0.0.1:53.
+
+    Raises:
+        无.
+
+    调用示例:
+        _normalize_resolver_list("10.0.0.1, 10.0.0.2:53")
+    """
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        raw_items = list(value)
+    else:
+        raw_items = re.split(r"[,;\s]+", str(value))
+    result: List[str] = []
+    seen: set = set()
+    for item in raw_items:
+        text = str(item or "").strip()
+        if not text or text.startswith("#"):
+            continue
+        if any(ch in text for ch in " /\\\"'<>"):
+            continue
+        if text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
+def write_resolvers_file(resolvers: List[str]) -> Path:
+    """
+    把 resolver 列表写到 recon_data/resolvers.txt, 供 amass -rf / dnsx -rL 使用.
+
+    Args:
+        resolvers: 已规范化的 DNS 地址.
+
+    Returns:
+        Path: resolvers.txt 路径.
+
+    Raises:
+        OSError: 写文件失败时由调用方处理.
+
+    调用示例:
+        write_resolvers_file(["10.0.0.1"])
+    """
+    ensure_dirs()
+    RESOLVERS_FILE.write_text("\n".join(resolvers) + "\n", encoding="utf-8")
+    return RESOLVERS_FILE
+
+
+def resolve_wordlist_path(raw: Optional[str]) -> Optional[str]:
+    """
+    解析 wordlist 路径. 相对路径依次试 WORDLISTS_DIR、DATA_DIR、cwd.
+
+    Args:
+        raw: 用户填写的路径.
+
+    Returns:
+        Optional[str]: 存在则返回绝对路径, 否则返回原字符串 (调用方记录 not found).
+
+    Raises:
+        无.
+
+    调用示例:
+        resolve_wordlist_path("subdomains.txt")
+    """
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    candidates = [Path(text)]
+    p = Path(text)
+    if not p.is_absolute():
+        candidates.extend([WORDLISTS_DIR / p.name, WORDLISTS_DIR / p, DATA_DIR / p, Path.cwd() / p])
+    for candidate in candidates:
+        try:
+            if candidate.is_file():
+                return str(candidate.resolve())
+        except OSError:
+            continue
+    return text
+
+
+def save_uploaded_wordlist(filename: str, content: str) -> Tuple[bool, str, str]:
+    """
+    把上传的 wordlist 写到 recon_data/wordlists/.
+
+    Args:
+        filename: 原始文件名, 只保留 basename.
+        content: 文本内容.
+
+    Returns:
+        Tuple[bool, str, str]: (成功, 消息, 保存后的绝对路径).
+
+    Raises:
+        无. 失败返回 False.
+
+    调用示例:
+        save_uploaded_wordlist("subs.txt", "www\\napi\\n")
+    """
+    name = Path(filename or "wordlist.txt").name
+    if not re.match(r"^[A-Za-z0-9._-]{1,128}$", name) or name.startswith("."):
+        return False, "Invalid filename. Use letters, digits, dot, underscore, hyphen.", ""
+    if not re.search(r"\.(txt|lst|wl)$", name, re.IGNORECASE):
+        name = name + ".txt"
+    encoded = content.encode("utf-8")
+    if len(encoded) > 20 * 1024 * 1024:
+        return False, "Wordlist too large (max 20MB).", ""
+    ensure_dirs()
+    dest = WORDLISTS_DIR / name
+    dest.write_bytes(encoded)
+    return True, f"Saved {name}.", str(dest.resolve())
+
+
+
+
 def expand_wildcard_targets(raw: str, config: Optional[Dict[str, Any]] = None) -> List[str]:
     """
     Expand wildcard targets from input string. Supports multiple domains
@@ -3429,6 +3556,13 @@ def update_config_settings(values: Dict[str, Any]) -> Tuple[bool, str, Dict[str,
         if cfg.get("wildcard_tlds", []) != new_tlds:
             cfg["wildcard_tlds"] = new_tlds
             changed = True
+
+    if "dns_resolvers" in values:
+        new_resolvers = _normalize_resolver_list(values.get("dns_resolvers"))
+        if cfg.get("dns_resolvers", []) != new_resolvers:
+            cfg["dns_resolvers"] = new_resolvers
+            changed = True
+
 
     if "skip_nikto_by_default" in values:
         new_skip = bool_from_value(
@@ -5361,21 +5495,30 @@ def amass_enum(domain: str, config: Optional[Dict[str, Any]] = None, job_domain:
     out_json = out_base.with_suffix(".json")
     extra_args = []
     timeout = None
-    if config:
-        try:
-            timeout = int(config.get("amass_timeout"))
-            if timeout <= 0:
-                timeout = None
-        except (TypeError, ValueError):
+    cfg = config if config is not None else get_config()
+    try:
+        timeout = int(cfg.get("amass_timeout"))
+        if timeout <= 0:
             timeout = None
-        if config.get("amass_passive"):
-            extra_args.append("-passive")
+    except (TypeError, ValueError):
+        timeout = None
+    if cfg.get("amass_passive"):
+        extra_args.append("-passive")
+    resolvers = _normalize_resolver_list(cfg.get("dns_resolvers"))
+    if resolvers:
+        rf = write_resolvers_file(resolvers)
+        extra_args.extend(["-rf", str(rf)])
+        for resolver in resolvers:
+            extra_args.extend(["-r", resolver])
+        if job_domain:
+            job_log_append(job_domain, f"Amass DNS resolvers: {', '.join(resolvers)}", "amass")
     cmd = [
         TOOLS["amass"],
         "enum",
         "-d", domain,
         "-oA", str(out_base),
     ] + extra_args
+
     context = {
         "DOMAIN": domain,
         "OUTPUT_PREFIX": str(out_base),
@@ -5717,7 +5860,8 @@ def github_subdomains_enum(domain: str, job_domain: Optional[str] = None) -> Lis
                 pass
 
 
-def dnsx_verify(subdomains: List[str], domain: str, job_domain: Optional[str] = None) -> List[str]:
+def dnsx_verify(subdomains: List[str], domain: str, job_domain: Optional[str] = None,
+                config: Optional[Dict[str, Any]] = None) -> List[str]:
     """
     Use dnsx to verify which subdomains actually resolve.
     """
@@ -5725,20 +5869,27 @@ def dnsx_verify(subdomains: List[str], domain: str, job_domain: Optional[str] = 
         return subdomains
     if not subdomains:
         return []
-    
+
     input_path = DATA_DIR / f"dnsx_input_{domain}.txt"
     out_path = DATA_DIR / f"dnsx_{domain}.txt"
-    
+
     with open(input_path, "w", encoding="utf-8") as f:
         for sub in subdomains:
             f.write(sub + "\n")
-    
+
     cmd = [
         TOOLS["dnsx"],
         "-silent",
         "-l", str(input_path),
         "-o", str(out_path),
     ]
+    cfg = config if config is not None else get_config()
+    resolvers = _normalize_resolver_list(cfg.get("dns_resolvers"))
+    if resolvers:
+        rf = write_resolvers_file(resolvers)
+        cmd.extend(["-rL", str(rf)])
+        if job_domain:
+            job_log_append(job_domain, f"DNSx DNS resolvers: {', '.join(resolvers)}", "dnsx")
     context = {
         "DOMAIN": domain,
         "INPUT": str(input_path),
@@ -5747,6 +5898,7 @@ def dnsx_verify(subdomains: List[str], domain: str, job_domain: Optional[str] = 
     cmd = apply_template_flags("dnsx", cmd, context)
     success = run_subprocess(cmd, outfile=out_path, job_domain=job_domain, step="dnsx")
     return read_lines_file(out_path) if success else subdomains
+
 
 
 def waybackurls_enum(domain: str, job_domain: Optional[str] = None) -> List[str]:
@@ -6270,7 +6422,7 @@ def run_downstream_pipeline(
             with TOOL_GATES["dnsx"]:
                 if job_domain:
                     job_log_append(job_domain, "dnsx slot acquired.", "scheduler")
-                verified_subs = dnsx_verify(all_discovered_subs, domain, job_domain=job_domain)
+                verified_subs = dnsx_verify(all_discovered_subs, domain, job_domain=job_domain, config=config)
             log(f"dnsx verified {len(verified_subs)} resolving subdomains.")
             flags["dnsx_done"] = True
             save_state(state)
@@ -6519,6 +6671,12 @@ def ffuf_bruteforce(
     """
     if not ensure_tool_installed("ffuf"):
         return []
+    resolved = resolve_wordlist_path(wordlist)
+    if not resolved or not Path(resolved).is_file():
+        log(f"ffuf wordlist not found: {wordlist}")
+        return []
+    wordlist = resolved
+
 
     out_json = DATA_DIR / f"ffuf_{domain}.json"
     # NOTE: user can tune -mc, -fs, etc to avoid wildcard noise.
@@ -8358,9 +8516,7 @@ button:hover { background:#1d4ed8; }
 .monitor-card { border:1px solid #1f2937; border-radius:16px; padding:18px; background:#050b18; }
 .monitor-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
 .monitor-meta { font-size:13px; color:var(--muted); margin-top:4px; }
-.monitor-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.monitor-stats { display:flex; flex-wrap:wrap; gap:12px; margin:12px 0; font-size:13px; }
-.monitor-stats span { background:#0b152c; padding:6px 10px; border-radius:10px; border:1px solid #1f2937; }
+
 .monitor-entry-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
 .monitor-entry-table th, .monitor-entry-table td { border:1px solid #1f2937; padding:6px 8px; text-align:left; }
 .monitor-entry-table th { background:#162132; }
@@ -8516,9 +8672,11 @@ button:hover { background:#1d4ed8; }
                   Enter one or more domains/wildcards. Separate with commas or newlines.
                 </small>
               </label>
-              <label for="launch-wordlist">Wordlist path (optional)
-                <input id="launch-wordlist" type="text" name="wordlist" placeholder="./w.txt" />
+              <label for="launch-wordlist">Wordlist path (optional, ffuf)
+                <input id="launch-wordlist" type="text" name="wordlist" placeholder="/app/recon_data/wordlists/subdomains.txt" />
               </label>
+              <p class="muted">Leave blank to use Settings default. File must exist inside the container.</p>
+
               <label for="launch-interval">Dashboard interval seconds
                 <input id="launch-interval" type="number" name="interval" min="5" />
               </label>
@@ -8580,10 +8738,9 @@ button:hover { background:#1d4ed8; }
 
     <section class="module" data-view="workers">
       <div class="module-header"><h2>Workers</h2></div>
-      <div class="module-body" id="workers-body">
-        <div class="section-placeholder">Loading worker data…</div>
-      </div>
+      <div class="module-body" id="workers-body"></div>
     </section>
+
 
     <section class="module" data-view="resources">
       <div class="module-header">
@@ -8606,6 +8763,7 @@ button:hover { background:#1d4ed8; }
 
     <section class="module" data-view="reports">
       <div class="module-header"><h2>Reports & Export</h2></div>
+
       <div class="module-body" id="reports-body">
         <div class="section-placeholder">No data yet.</div>
       </div>
@@ -8740,8 +8898,14 @@ button:hover { background:#1d4ed8; }
             <div class="card">
               <h3>General Settings</h3>
               <label>Default wordlist
-                <input id="settings-wordlist" type="text" name="default_wordlist" placeholder="./w.txt" />
+                <input id="settings-wordlist" type="text" name="default_wordlist" placeholder="/app/recon_data/wordlists/subdomains.txt" />
               </label>
+              <p class="muted">Path inside the container. Host file <code>recon_data/wordlists/your.txt</code> is <code>/app/recon_data/wordlists/your.txt</code>. Do not use <code>./w.txt</code>.</p>
+              <label>Upload wordlist
+                <input id="settings-wordlist-file" type="file" accept=".txt,.lst,.wl,text/plain" />
+              </label>
+              <button type="button" id="settings-wordlist-upload" class="btn small">Upload to recon_data/wordlists</button>
+              <div id="settings-wordlist-status" class="status"></div>
               <label>Default interval (seconds)
                 <input id="settings-interval" type="number" name="default_interval" min="5" />
               </label>
@@ -8763,6 +8927,11 @@ button:hover { background:#1d4ed8; }
               <label>Amass timeout (seconds)
                 <input id="settings-amass-timeout" type="number" name="amass_timeout" min="0" />
               </label>
+              <label>DNS resolvers (intranet)
+                <input id="settings-dns-resolvers" type="text" name="dns_resolvers" placeholder="10.0.0.1, 10.0.0.2" />
+              </label>
+              <p class="muted">Used by Amass and DNSx. Comma or space separated IPs. Empty = public DNS, usually unusable on intranet.</p>
+
             </div>
           </div>
 
@@ -9591,6 +9760,11 @@ const settingsSkipNikto = document.getElementById('settings-skip-nikto');
 const settingsEnableScreenshots = document.getElementById('settings-enable-screenshots');
 const settingsEnableAmass = document.getElementById('settings-enable-amass');
 const settingsAmassTimeout = document.getElementById('settings-amass-timeout');
+const settingsDnsResolvers = document.getElementById('settings-dns-resolvers');
+const settingsWordlistFile = document.getElementById('settings-wordlist-file');
+const settingsWordlistUpload = document.getElementById('settings-wordlist-upload');
+const settingsWordlistStatus = document.getElementById('settings-wordlist-status');
+
 const settingsEnableSubfinder = document.getElementById('settings-enable-subfinder');
 const settingsEnableAssetfinder = document.getElementById('settings-enable-assetfinder');
 const settingsEnableFindomain = document.getElementById('settings-enable-findomain');
@@ -13383,6 +13557,8 @@ function renderSettings(config, tools) {
     settingsEnableScreenshots.checked = config.enable_screenshots !== false;
     settingsEnableAmass.checked = config.enable_amass !== false;
     settingsAmassTimeout.value = config.amass_timeout || 600;
+    if (settingsDnsResolvers) settingsDnsResolvers.value = (config.dns_resolvers || []).join(', ');
+
     settingsEnableSubfinder.checked = config.enable_subfinder !== false;
     settingsEnableAssetfinder.checked = config.enable_assetfinder !== false;
     settingsEnableFindomain.checked = config.enable_findomain !== false;
@@ -13509,6 +13685,37 @@ if (settingsForm) {
   console.error('Settings form not found!');
 }
 
+if (settingsWordlistUpload) {
+  settingsWordlistUpload.addEventListener('click', async () => {
+    const file = settingsWordlistFile && settingsWordlistFile.files && settingsWordlistFile.files[0];
+    if (!file) {
+      if (settingsWordlistStatus) settingsWordlistStatus.textContent = 'Choose a .txt file first.';
+      return;
+    }
+    if (settingsWordlistStatus) settingsWordlistStatus.textContent = 'Uploading...';
+    try {
+      const content = await file.text();
+      const resp = await fetch('/api/wordlist/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, content }),
+      });
+      const data = await resp.json();
+      if (data.success && data.path) {
+        if (settingsWordlist) settingsWordlist.value = data.path;
+        if (launchWordlist && !launchFormDirty) launchWordlist.value = data.path;
+        settingsFormDirty = true;
+        if (settingsWordlistStatus) settingsWordlistStatus.textContent = data.message || 'Uploaded.';
+      } else {
+        if (settingsWordlistStatus) settingsWordlistStatus.textContent = data.message || 'Upload failed.';
+      }
+    } catch (err) {
+      if (settingsWordlistStatus) settingsWordlistStatus.textContent = 'Upload failed: ' + err;
+    }
+  });
+}
+
+
 targetsList.addEventListener('click', (event) => {
   const btn = event.target.closest('.sub-link');
   if (!btn) return;
@@ -13624,6 +13831,8 @@ if (settingsForm) {
         enable_screenshots: settingsEnableScreenshots ? settingsEnableScreenshots.checked : true,
         enable_amass: settingsEnableAmass ? settingsEnableAmass.checked : true,
         amass_timeout: settingsAmassTimeout ? settingsAmassTimeout.value : '',
+        dns_resolvers: settingsDnsResolvers ? settingsDnsResolvers.value : '',
+
         enable_subfinder: settingsEnableSubfinder ? settingsEnableSubfinder.checked : true,
         enable_assetfinder: settingsEnableAssetfinder ? settingsEnableAssetfinder.checked : true,
         enable_findomain: settingsEnableFindomain ? settingsEnableFindomain.checked : true,
@@ -19486,10 +19695,12 @@ form.addEventListener('submit', async (e) => {
             "/api/subdomain/comment",
             "/api/subdomain/run-tool",
             "/api/target/comment",
+            "/api/wordlist/upload",
         }
         if self.path not in allowed:
             self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
             return
+
 
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length).decode("utf-8") if length else ""
@@ -19504,6 +19715,18 @@ form.addEventListener('submit', async (e) => {
         except json.JSONDecodeError:
             self._send_json({"success": False, "message": "Invalid JSON payload."}, status=HTTPStatus.BAD_REQUEST)
             return
+
+        if self.path == "/api/wordlist/upload":
+            filename = str(payload.get("filename") or "")
+            content = payload.get("content")
+            if content is None:
+                self._send_json({"success": False, "message": "content is required"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            success, message, path = save_uploaded_wordlist(filename, str(content))
+            status = HTTPStatus.OK if success else HTTPStatus.BAD_REQUEST
+            self._send_json({"success": success, "message": message, "path": path}, status=status)
+            return
+
         
         if self.path == "/api/backup/create":
             name = payload.get("name", "")
@@ -19806,13 +20029,12 @@ form.addEventListener('submit', async (e) => {
                         urls = gau_enum(domain, job_domain=None)
                         log(f"gau found {len(urls)} URLs for {domain}")
                     elif tool == "ffuf":
-                        # Get config for wordlist
-                        config = load_config()
-                        wordlist = config.get("wordlist", "")
-                        
-                        if not wordlist or not Path(wordlist).exists():
+                        config = get_config()
+                        wordlist = resolve_wordlist_path(config.get("default_wordlist") or "")
+                        if not wordlist or not Path(wordlist).is_file():
                             log(f"ffuf wordlist not configured or not found for {subdomain}")
                             return
+
                         
                         # Run ffuf for the subdomain
                         log(f"Running ffuf brute-force for {subdomain} using {wordlist}")
