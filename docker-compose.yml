@@ -1,33 +1,27 @@
-version: '3.8'
+# Runtime only. Does not build or pull.
+# Online:  docker build -t subscraper:latest . && docker compose --env-file .env up -d
+# Offline: docker load, then the same up command. Never use --build.
 
 services:
   subscraper:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: subscraper
+    image: ${IMAGE_NAME:-subscraper:latest}
+    pull_policy: never
+    container_name: ${CONTAINER_NAME:-subscraper}
     ports:
-      - "8342:8342"
+      - "${SUBSCRAPER_PORT:-8342}:8342"
     volumes:
-      # Required: Persists all scan data, job history, and configuration
-      # This includes completed_jobs.json which keeps job reports visible in dashboard
-      - ./recon_data:/app/recon_data
-      # Optional: Mount custom wordlists for subdomain brute-forcing
-      # - ./wordlists:/app/wordlists
+      - ${RECON_DATA_DIR:-./recon_data}:/app/recon_data
+    env_file:
+      - .env
     environment:
-      - PYTHONUNBUFFERED=1
+      PYTHONUNBUFFERED: "1"
+      SUBSCRAPER_ADMIN_USER: ${SUBSCRAPER_ADMIN_USER:-admin}
+      SUBSCRAPER_ADMIN_PASSWORD: ${SUBSCRAPER_ADMIN_PASSWORD:?set SUBSCRAPER_ADMIN_PASSWORD in .env}
+      SUBSCRAPER_SKIP_AUTO_INSTALL: ${SUBSCRAPER_SKIP_AUTO_INSTALL:-1}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8342/api/state"]
+      test: ["CMD", "curl", "-f", "http://localhost:8342/login"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
-
-# Data persistence notes:
-# - All application data is stored in ./recon_data/
-# - Job history persists in completed_jobs.json (keeps reports visible)
-# - Scan results, screenshots, and backups are preserved
-# - Configuration settings are maintained across restarts
-# - To backup: docker-compose down && tar -czf backup.tar.gz recon_data/
-# - To restore: tar -xzf backup.tar.gz && docker-compose up -d
+      start_period: 20s

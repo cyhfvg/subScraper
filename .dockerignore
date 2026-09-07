@@ -20,6 +20,10 @@ recon_data/
 screenshots/
 history/
 
+.env
+.env.*
+!.env.example
+subscraper-offline.tar.gz
 # IDE files
 .vscode/
 .idea/

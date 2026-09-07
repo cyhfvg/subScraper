@@ -7,3 +7,6 @@
 __pycache__/
 recon_data/
 .DS_Store
+.env
+subscraper-offline.tar.gz
+subscraper-offline.tar.gz.sha256

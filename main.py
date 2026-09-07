@@ -4566,6 +4566,12 @@ def ensure_tool_installed(tool: str) -> bool:
         log(f"{tool} already installed.")
         return True
 
+    skip_auto = str(os.environ.get("SUBSCRAPER_SKIP_AUTO_INSTALL") or "").strip().lower()
+    if skip_auto in ("1", "true", "yes", "on"):
+        log(f"{tool} not found. Auto-install disabled (SUBSCRAPER_SKIP_AUTO_INSTALL).")
+        return False
+
+
     info = detect_platform()
     log(f"{tool} not found. Detected {info['system_label']}"
         + (f" / {info['distro']}" if info["distro"] else "")
@@ -19916,6 +19922,36 @@ form.addEventListener('submit', async (e) => {
         log(f"HTTP {self.address_string()} - {format % args}")
 
 
+def bootstrap_admin_from_env() -> bool:
+    """
+    从环境变量创建首个管理员, 供 Docker / 非交互启动使用.
+
+    Args:
+        无. 读取 SUBSCRAPER_ADMIN_USER 与 SUBSCRAPER_ADMIN_PASSWORD.
+
+    Returns:
+        bool: 已有管理员或创建成功时为 True, 否则 False.
+
+    Raises:
+        无. 失败只写日志.
+
+    调用示例:
+        bootstrap_admin_from_env()
+    """
+    if has_admin_user():
+        return True
+    username = str(os.environ.get("SUBSCRAPER_ADMIN_USER") or "").strip()
+    password = str(os.environ.get("SUBSCRAPER_ADMIN_PASSWORD") or "")
+    if not username or not password:
+        return False
+    success, message = create_user(username, password, is_admin=True)
+    if success:
+        log(f"Admin user '{username}' created from environment variables.")
+        return True
+    log(f"ERROR: Failed to create admin from environment: {message}")
+    return False
+
+
 def prompt_admin_creation() -> bool:
     """
     Prompt for admin account creation if none exists (interactive mode only).
@@ -19923,35 +19959,38 @@ def prompt_admin_creation() -> bool:
     """
     if has_admin_user():
         return True
-    
+
+    if bootstrap_admin_from_env():
+        return True
+
     if not sys.stdin.isatty():
         log("ERROR: No admin account exists and running in non-interactive mode.")
-        log("Please run in interactive mode to create an admin account first.")
+        log("Set SUBSCRAPER_ADMIN_USER and SUBSCRAPER_ADMIN_PASSWORD, or run interactively.")
         return False
-    
+
     print("\n" + "="*70)
     print("⚠️  ADMIN ACCOUNT REQUIRED")
     print("="*70)
     print("\nNo admin account exists. You need to create one to access the web UI.")
     print("This account will have full access and can create additional users.\n")
-    
+
     while True:
         try:
             username = input("Admin username (min 3 chars): ").strip()
             if not username:
                 print("⚠ Username is required.")
                 continue
-            
+
             password = input("Admin password (min 6 chars): ").strip()
             if not password:
                 print("⚠ Password is required.")
                 continue
-            
+
             password_confirm = input("Confirm password: ").strip()
             if password != password_confirm:
                 print("⚠ Passwords don't match. Please try again.\n")
                 continue
-            
+
             success, message = create_user(username, password, is_admin=True)
             if success:
                 print(f"✓ {message}\n")
@@ -19962,6 +20001,7 @@ def prompt_admin_creation() -> bool:
             print("\n\nAdmin account creation cancelled.")
             print("An admin account is required to run the web server.")
             return False
+
 
 
 def generate_self_signed_cert(cert_file: Path, key_file: Path) -> bool:
