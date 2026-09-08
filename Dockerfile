@@ -97,6 +97,8 @@ RUN pip install --no-cache-dir -r /app/requirements.txt \
     && pip install --no-cache-dir sublist3r
 
 COPY main.py /app/
+COPY subscraper/ /app/subscraper/
+COPY web/ /app/web/
 COPY nuclei-templates/ /app/nuclei-templates/
 
 RUN mkdir -p /app/recon_data

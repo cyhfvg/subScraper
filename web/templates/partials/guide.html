@@ -1,0 +1,36 @@
+<section class="module" data-view="guide">
+      <div class="module-header"><h2>User Guide</h2></div>
+      <div class="module-body">
+        <div class="card">
+          <h3>Launching targets</h3>
+          <ul class="tips">
+            <li>Enter a domain like <code>example.com</code> or use a wildcard suffix such as <code>example.*</code> to fan out across configured TLDs. Configure the allowed TLD list under <strong>Settings → Wildcard TLDs</strong>.</li>
+            <li>Prefix with <code>*.</code> to scan a sub-scope, e.g., <code>*.apps.example.com</code> will recurse under that subdomain while still honoring wildcard TLD expansion when paired with <code>.*</code>.</li>
+            <li>Provide a wordlist path if you want ffuf vhost brute-forcing; leave it blank to skip ffuf automatically.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Templated tool flags</h3>
+          <p>Each tool runs with built-in safe defaults. Any text you add in the Command templates settings will be appended to the underlying command <em>after</em> placeholder expansion. Leave a template blank to keep defaults.</p>
+          <p>Supported placeholders are replaced per run: <code>$DOMAIN$</code>, <code>$SUBDOMAIN$</code>, <code>$WORDLIST$</code>, <code>$OUTPUT$</code>, <code>$OUTPUT_JSON$</code>, <code>$OUTPUT_PREFIX$</code>, <code>$INPUT_FILE$</code>, <code>$TARGET_URL$</code>, <code>$TARGETS_FILE$</code>, <code>$OUTPUT_DIR$</code>, <code>$DB_PATH$</code>, <code>$THREADS$</code>, and <code>$HOST_HEADER$</code>.</p>
+          <div class="table-wrapper">
+            <table class="monitor-entry-table">
+              <thead><tr><th>Tool</th><th>Context variables you can use</th></tr></thead>
+              <tbody>
+                <tr><td>Amass</td><td><code>$DOMAIN$</code>, <code>$OUTPUT_PREFIX$</code>, <code>$OUTPUT_JSON$</code></td></tr>
+                <tr><td>Subfinder</td><td><code>$DOMAIN$</code>, <code>$OUTPUT$</code>, <code>$THREADS$</code></td></tr>
+                <tr><td>Assetfinder</td><td><code>$DOMAIN$</code>, <code>$OUTPUT$</code>, <code>$THREADS$</code></td></tr>
+                <tr><td>Findomain</td><td><code>$DOMAIN$</code>, <code>$OUTPUT$</code>, <code>$THREADS$</code></td></tr>
+                <tr><td>Sublist3r</td><td><code>$DOMAIN$</code>, <code>$OUTPUT$</code></td></tr>
+                <tr><td>ffuf</td><td><code>$DOMAIN$</code>, <code>$WORDLIST$</code>, <code>$OUTPUT$</code>, <code>$TARGET_URL$</code>, <code>$HOST_HEADER$</code></td></tr>
+                <tr><td>httpx</td><td><code>$DOMAIN$</code>, <code>$INPUT_FILE$</code>, <code>$OUTPUT$</code></td></tr>
+                <tr><td>nuclei</td><td><code>$DOMAIN$</code>, <code>$INPUT_FILE$</code>, <code>$OUTPUT$</code></td></tr>
+                <tr><td>Nikto</td><td><code>$DOMAIN$</code>, <code>$SUBDOMAIN$</code>, <code>$TARGET_URL$</code>, <code>$OUTPUT$</code></td></tr>
+                <tr><td>Gowitness (screenshots)</td><td><code>$DOMAIN$</code>, <code>$TARGETS_FILE$</code>, <code>$OUTPUT_DIR$</code>, <code>$DB_PATH$</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="template-note">Examples: add <code>-passive</code> to Amass, <code>-rate 50</code> to ffuf, or <code>-severity medium,high,critical</code> to nuclei. Use <code>$OUTPUT$</code> to change where a tool writes extra logs.</p>
+        </div>
+      </div>
+    </section>

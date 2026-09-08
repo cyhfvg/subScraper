@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Recon Command Center</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/static/css/theme_01.css">
+  <link rel="stylesheet" href="/static/css/jobs.css">
+
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">🛰️</div>
+      <div>
+        <div class="brand-title">Recon Command Center</div>
+        <div class="muted">Your bounty HQ</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="nav-link" data-view="overview" href="#overview">Overview</a>
+      <a class="nav-link" data-view="launch" href="#launch">Launch Scan</a>
+      <a class="nav-link" data-view="jobs" href="#jobs">Active Jobs</a>
+      <a class="nav-link" data-view="workers" href="#workers">Workers</a>
+      <a class="nav-link" data-view="resources" href="#resources">System Resources</a>
+      <a class="nav-link" data-view="queue" href="#queue">Queue</a>
+      <a class="nav-link" data-view="reports" href="#reports">Reports</a>
+      <a class="nav-link" data-view="gallery" href="#gallery">Gallery</a>
+      <a class="nav-link" data-view="logs" href="#logs">Logs</a>
+      <a class="nav-link" data-view="monitors" href="#monitors">Monitors</a>
+      <a class="nav-link" data-view="targets" href="#targets">Targets</a>
+      <a class="nav-link" data-view="settings" href="#settings">Settings</a>
+      <a class="nav-link" data-view="database" href="#database">Database</a>
+      <a class="nav-link" data-view="howto" href="#howto">How to use this tool</a>
+      <a class="nav-link" data-view="guide" href="#guide">User Guide</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="user-info" style="padding: 12px; background: #0f172a; border-radius: 8px; margin-bottom: 12px;">
+        <div style="font-size: 13px; color: #94a3b8; margin-bottom: 4px;">Logged in as</div>
+        <div style="font-weight: 600; margin-bottom: 8px;" id="username-display">Loading...</div>
+        <button onclick="logout()" style="width: 100%; padding: 8px; background: #dc2626; margin-top: 0;">Logout</button>
+      </div>
+      Outputs live in <code>recon_data/</code>. Keep this UI open while jobs run.
+    </div>
+  </aside>
+  <main class="main-content">
+    

@@ -1,0 +1,43 @@
+<section class="module" data-view="database">
+      <div class="module-header">
+        <h2>Database Viewer</h2>
+        <p class="muted">Browse and search every table in the local SQLite database</p>
+      </div>
+      <div class="module-body">
+        <div class="card" style="margin-bottom: 20px;">
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+            <label style="flex: 0 0 auto; min-width: 180px;">
+              Table
+              <select id="db-table-select">
+                <option value="">— select a table —</option>
+              </select>
+            </label>
+            <label style="flex: 1; min-width: 200px;">
+              Search (all columns)
+              <input type="search" id="db-search" placeholder="Search rows…" />
+            </label>
+            <label style="flex: 0 0 auto; min-width: 120px;">
+              Rows per page
+              <select id="db-page-size">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="250">250</option>
+                <option value="500">500</option>
+              </select>
+            </label>
+            <button id="db-refresh-btn" class="btn small">Refresh</button>
+          </div>
+        </div>
+        <div id="db-status" class="muted" style="margin-bottom: 12px;"></div>
+        <div class="table-wrapper" style="overflow-x: auto;">
+          <table class="targets-table" id="db-table">
+            <thead id="db-thead"><tr><th>Select a table above</th></tr></thead>
+            <tbody id="db-tbody">
+              <tr><td class="muted">No table selected.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-pagination" id="db-pagination" style="margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;"></div>
+      </div>
+    </section>

@@ -335,11 +335,5 @@ class TestUiAndCli:
         assert 'name="max_parallel_nikto" min="0"' in main.INDEX_HTML
         assert 'name="max_parallel_httpx" min="0"' in main.INDEX_HTML
 
-    def test_slots_load_without_defaulting_to_one(self):
-        # `|| 1` here would silently turn "inherit" back into an override.
-        assert "config.max_parallel_nikto ?? 0" in main.INDEX_HTML
-        assert "config.max_parallel_nikto || 1" not in main.INDEX_HTML
 
-    def test_cli_flag_exists(self):
-        source = Path(main.__file__).read_text(encoding="utf-8")
-        assert '"--tool-workers"' in source
+

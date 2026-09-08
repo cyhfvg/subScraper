@@ -1196,15 +1196,17 @@ class TestJobManagement:
         assert snapshot[0]['status'] == 'running'
     
     def test_job_queue_snapshot(self):
-        """Test job queue snapshot"""
+        """排队快照只包含 RUNNING_JOBS 中仍存在的域名."""
         with main.JOB_LOCK:
-            main.JOB_QUEUE.append('test1.com')
-            main.JOB_QUEUE.append('test2.com')
-        
+            main.JOB_QUEUE.append("test1.com")
+            main.JOB_QUEUE.append("test2.com")
+            main.RUNNING_JOBS["test1.com"] = {"domain": "test1.com", "status": "queued"}
+            main.RUNNING_JOBS["test2.com"] = {"domain": "test2.com", "status": "queued"}
+
         snapshot = main.job_queue_snapshot()
-        assert len(snapshot) == 2
-        assert 'test1.com' in snapshot
-        assert 'test2.com' in snapshot
+        domains = [entry["domain"] for entry in snapshot]
+        assert domains == ["test1.com", "test2.com"]
+
 
 
 class TestLockingMechanisms:

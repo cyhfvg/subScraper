@@ -1,0 +1,115 @@
+<section class="module" data-view="howto">
+      <div class="module-header">
+        <h2>How to use this tool</h2>
+        <p class="muted">Start here: what it does, what it needs installed, and the order to do things in.</p>
+      </div>
+      <div class="module-body">
+        <div class="card">
+          <h3>What this is</h3>
+          <p>Recon Command Center runs a subdomain-to-vulnerability pipeline for a domain and keeps the results. You give it a domain, it enumerates subdomains, works out which hosts are alive, crawls URLs, pulls secrets out of JavaScript, screenshots what it finds, and scans for known issues. Everything lands in the Reports and Overview views and stays there between restarts.</p>
+        </div>
+
+        <div class="card">
+          <h3>1 &middot; Check your tools</h3>
+          <p class="muted">The pipeline shells out to real recon tools. Anything missing is skipped, which is why a scan can look "done" with nothing found.</p>
+          <div id="howto-platform" class="muted" style="margin: 8px 0;">Detecting your system&hellip;</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            <button class="btn small" id="howto-refresh-tools" type="button">Re-check tools</button>
+            <button class="btn small" id="howto-install-missing" type="button">Install missing tools</button>
+          </div>
+          <div id="howto-install-status" class="muted" style="margin-bottom: 12px;"></div>
+          <div id="howto-tools"></div>
+        </div>
+
+        <div class="card">
+          <h3>2 &middot; Launch a scan</h3>
+          <ul class="tips">
+            <li>Go to <strong>Launch Scan</strong> and enter a domain: <code>example.com</code>.</li>
+            <li><code>*.example.com</code> scans the whole sub-scope. <code>example.*</code> fans out over the TLDs configured in <strong>Settings &rarr; Wildcard TLDs</strong>.</li>
+            <li>Multiple targets at once: one per line, or comma-separated.</li>
+            <li>A wordlist path turns on ffuf vhost brute-forcing. Leave it blank to skip that step.</li>
+            <li>Nikto is slow. Tick <em>skip nikto</em> for a first pass, then re-run the target later without it.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Going faster</h3>
+          <p><strong>Settings &rarr; Workers per tool</strong> (default 5) controls how many copies of each tool may run at once. httpx, nuclei and nikto also split a batch of hosts across that many processes, so raising it speeds up a single target rather than only helping when several jobs run side by side.</p>
+          <ul class="tips">
+            <li>Per-tool slots below it stay at 0 to follow that number. Set one only where a tool needs its own limit - a rate-limited API, say.</li>
+            <li><strong>Max concurrent jobs</strong> is separate: it controls how many targets run at once, not how many workers each tool gets.</li>
+            <li>Watch <strong>System Resources</strong> after raising it. Dynamic mode will pull job counts back down if the box struggles.</li>
+            <li>From the command line: <code>python3 main.py --tool-workers 5</code>.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>3 &middot; Watch it run</h3>
+          <ul class="tips">
+            <li><strong>Active Jobs</strong> shows each pipeline step, its progress and its log. Jobs can be paused, resumed, or have a stuck step skipped.</li>
+            <li><strong>Queue</strong> holds targets waiting for a free slot. Slot count is <strong>Settings &rarr; Max running jobs</strong>, or turn on dynamic mode to let the box decide.</li>
+            <li><strong>System Resources</strong> warns before CPU, memory or disk runs out. If scans crawl, lower the job and worker caps there.</li>
+            <li><strong>Logs</strong> is the ground truth for a tool that failed - filter by source to see one tool's output.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>4 &middot; Read the results</h3>
+          <ul class="tips">
+            <li><strong>Overview</strong> is the summary: counts per target, and the <em>JS Findings</em> card with secrets and hidden endpoints found in JavaScript.</li>
+            <li><strong>Reports</strong> drills into one domain: every subdomain, HTTP status, title, tech, nuclei and nikto findings, screenshots and command history. Mark a subdomain interesting or leave a comment and it persists.</li>
+            <li><strong>Gallery</strong> is every screenshot, paginated - the fastest way to spot an admin panel.</li>
+            <li>Export as JSON or CSV from Reports, or grab the subdomain list as plain text.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>5 &middot; JS findings, and why they matter</h3>
+          <p>The JS scan fetches every JavaScript file it can reach for a target and greps it for three things:</p>
+          <ul class="tips">
+            <li><strong>Secrets</strong> - API keys, tokens and credentials left in front-end bundles. Values are redacted in the UI; the source URL tells you where to look.</li>
+            <li><strong>Endpoints</strong> - paths the app calls but nothing links to. These feed straight into manual testing.</li>
+            <li><strong>Parameters</strong> - query and body parameter names worth fuzzing.</li>
+          </ul>
+          <p class="muted">Turn it off or tune the file limit under <strong>Settings &rarr; JS scan</strong>. Re-run it for one domain from that domain's report page.</p>
+        </div>
+
+        <div class="card">
+          <h3>Bundled nuclei templates</h3>
+          <p>This repository ships hand-written nuclei templates for CVEs that have no template in the official <code>projectdiscovery/nuclei-templates</code> repo. They live in <code>nuclei-templates/</code> and run <em>in addition to</em> the official set on every nuclei step.</p>
+          <p class="muted">Turn them off under <strong>Settings &rarr; Use bundled nuclei templates</strong>. They are skipped with a note in the job log if nuclei has not downloaded its official templates yet - run <code>nuclei -update-templates</code> once and they come back.</p>
+        </div>
+
+        <div class="card">
+          <h3>6 &middot; Keep it running</h3>
+          <ul class="tips">
+            <li><strong>Monitors</strong> poll a URL holding a newline-separated target list and launch jobs as new entries appear.</li>
+            <li>Backups run on a schedule and can be restored from <strong>Settings</strong>. Cleanup trims old scan files so the disk survives.</li>
+            <li>Re-running a target resumes it: finished steps are not repeated.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>7 &middot; Drive it from an agent</h3>
+          <p>The <code>/api/agent/*</code> API takes a bug bounty program's full scope, runs recon across it and hands back assets, findings and a ranked attack surface. Authentication is a scoped API key, so an agent can be given read-only access, or access to one program only.</p>
+          <p class="muted">Full reference: <code>AGENT_API.md</code> in the repository. Start with <code>GET /api/agent</code> for the endpoint index.</p>
+        </div>
+
+        <div class="card">
+          <h3>When something looks wrong</h3>
+          <div class="table-wrapper">
+            <table class="monitor-entry-table">
+              <thead><tr><th>Symptom</th><th>What it usually is</th></tr></thead>
+              <tbody>
+                <tr><td>Scan finishes instantly, no subdomains</td><td>No enumeration tool installed. Check the tool list above.</td></tr>
+                <tr><td>A step is permanently "running"</td><td>The tool is waiting on something. Open Logs, then skip the step from Active Jobs.</td></tr>
+                <tr><td>httpx found nothing</td><td>The Python package called <code>httpx</code> is on PATH instead of ProjectDiscovery's. Install the right one; this app refuses the wrong binary on purpose.</td></tr>
+                <tr><td>No screenshots</td><td>gowitness needs Chrome or Chromium installed.</td></tr>
+                <tr><td>Auto-install did nothing</td><td>System package installs need root. Run the command shown above yourself, or start the app as root.</td></tr>
+                <tr><td>Everything is slow</td><td>Too many parallel jobs. Lower them in Settings or enable dynamic mode.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>

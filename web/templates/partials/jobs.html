@@ -1,0 +1,33 @@
+<section class="module" data-view="jobs">
+      <div class="module-header jobs-header">
+        <div>
+          <h2>Jobs</h2>
+          <p class="muted" id="jobs-subtitle">Live pipeline, queue and history</p>
+        </div>
+        <div class="jobs-toolbar-actions">
+          <button class="btn danger-outline small" id="cancel-all-btn">Cancel running</button>
+          <button class="btn secondary small" id="resume-all-btn">Resume paused</button>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="jobs-toolbar">
+          <div class="jobs-filters" role="tablist" aria-label="Job status filter">
+            <button class="jobs-chip active" data-jobs-filter="all" type="button">All <span id="jobs-count-all">0</span></button>
+            <button class="jobs-chip" data-jobs-filter="active" type="button">Active <span id="jobs-count-active">0</span></button>
+            <button class="jobs-chip" data-jobs-filter="paused" type="button">Paused <span id="jobs-count-paused">0</span></button>
+            <button class="jobs-chip" data-jobs-filter="completed" type="button">Completed <span id="jobs-count-completed">0</span></button>
+          </div>
+          <label class="jobs-search-label">
+            <span class="sr-only">Search jobs</span>
+            <input type="search" id="jobs-search" class="jobs-search" placeholder="Filter by domain..." />
+          </label>
+        </div>
+        <div id="jobs-list" class="jobs-grid">
+          <div class="jobs-empty">
+            <h3>No jobs yet</h3>
+            <p class="muted">Launch a scan and progress will show up here with pause, skip and delete.</p>
+          </div>
+        </div>
+        <div class="table-pagination" id="jobs-pagination"></div>
+      </div>
+    </section>

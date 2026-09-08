@@ -1,0 +1,49 @@
+<section class="module" data-view="overview">
+      <div class="module-header">
+        <h2>Overview</h2>
+        <p class="muted" id="last-updated">Last updated: never</p>
+      </div>
+      <div class="module-body">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="label">Active Jobs</div>
+            <div class="value" id="stat-active">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Queued Jobs</div>
+            <div class="value" id="stat-queued">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Tracked Targets</div>
+            <div class="value" id="stat-targets">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Known Subdomains</div>
+            <div class="value" id="stat-subdomains">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">JS Secrets</div>
+            <div class="value" id="stat-js-secrets">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">JS Endpoints</div>
+            <div class="value" id="stat-js-endpoints">0</div>
+          </div>
+        </div>
+        <div class="card" style="margin: 24px 0;">
+          <h3>Workflow Pipeline</h3>
+          <p class="muted">Visual representation of how data flows through the reconnaissance tools</p>
+          <div id="workflow-diagram" style="margin-top: 20px;"></div>
+        </div>
+        <div class="card" style="margin: 24px 0;">
+          <h3>JS Findings</h3>
+          <p class="muted">Secrets, hidden endpoints and parameters pulled out of JavaScript files. Open a domain for the full list.</p>
+          <div id="overview-js-findings"></div>
+        </div>
+        <div class="card" style="margin: 24px 0;">
+          <h3>Recent Targets</h3>
+          <p class="muted">Quick overview of all tracked domains</p>
+          <div id="overview-targets-list"></div>
+        </div>
+      </div>
+    </section>

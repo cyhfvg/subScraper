@@ -3,6 +3,8 @@
 *.txt
 !requirements.txt
 !requirements-dev.txt
+!**/manifest.txt
+
 *.jsonl
 __pycache__/
 recon_data/

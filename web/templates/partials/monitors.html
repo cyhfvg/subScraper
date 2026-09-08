@@ -1,0 +1,32 @@
+<section class="module" data-view="monitors">
+      <div class="module-header"><h2>Monitors</h2></div>
+      <div class="module-body" id="monitors-body">
+        <div class="grid-two">
+          <div class="card">
+            <h3>Add Monitor</h3>
+            <form id="monitor-form">
+              <label>Name (optional)
+                <input id="monitor-name" type="text" name="name" placeholder="Marketing domains" />
+              </label>
+              <label>Source URL
+                <input id="monitor-url" type="url" name="url" placeholder="https://example.com/domains.txt" required />
+              </label>
+              <label>Check interval (seconds)
+                <input id="monitor-interval" type="number" name="interval" min="60" value="300" />
+              </label>
+              <button type="submit">Add Monitor</button>
+            </form>
+            <div class="status" id="monitor-status"></div>
+          </div>
+          <div class="card">
+            <h3>How it works</h3>
+            <ul class="tips">
+              <li>Provide a newline-delimited list of targets (supports patterns such as <code>example.*</code> or <code>*.apps.example.com</code>).</li>
+              <li>New entries trigger recon jobs automatically with your default settings.</li>
+              <li>Monitors poll in the background; status updates appear below.</li>
+            </ul>
+          </div>
+        </div>
+        <div id="monitors-list" class="monitor-list section-placeholder">No monitors configured yet.</div>
+      </div>
+    </section>

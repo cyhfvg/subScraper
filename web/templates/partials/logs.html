@@ -1,0 +1,52 @@
+<section class="module" data-view="logs">
+      <div class="module-header">
+        <h2>System Logs</h2>
+        <p class="muted">View all system logs with advanced filtering and sorting</p>
+      </div>
+      <div class="module-body">
+        <div class="card" style="margin-bottom: 20px;">
+          <h3>Filter & Search</h3>
+          <div class="filter-bar" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: end;">
+            <label style="flex: 1; min-width: 200px;">
+              Search logs
+              <input type="search" id="log-search" placeholder="Search by text..." />
+            </label>
+            <label style="flex: 0 0 auto; min-width: 150px;">
+              Source
+              <select id="log-source-filter">
+                <option value="">All sources</option>
+              </select>
+            </label>
+            <label style="flex: 0 0 auto; min-width: 120px;">
+              Level
+              <select id="log-level-filter">
+                <option value="">All levels</option>
+                <option value="system">System</option>
+                <option value="command">Command</option>
+                <option value="error">Error</option>
+                <option value="stderr">Stderr</option>
+              </select>
+            </label>
+            <button id="log-clear-filters" class="btn small">Clear Filters</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="targets-table" id="logs-table">
+            <thead>
+              <tr>
+                <th data-sort-key="timestamp" data-sort-type="text">Timestamp <span class="sort-indicator"></span></th>
+                <th data-sort-key="source" data-sort-type="text">Source <span class="sort-indicator"></span></th>
+                <th data-sort-key="text" data-sort-type="text">Message <span class="sort-indicator"></span></th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody">
+              <tr><td colspan="3" class="muted">Loading logs...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-pagination" id="logs-pagination"></div>
+        <div style="margin-top: 16px; text-align: right;">
+          <span class="muted" id="logs-count">0 logs</span>
+        </div>
+      </div>
+    </section>

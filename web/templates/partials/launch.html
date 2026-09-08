@@ -1,0 +1,60 @@
+<section class="module" data-view="launch">
+      <div class="module-header"><h2>Launch Scan</h2></div>
+      <div class="module-body">
+        <div class="grid-two">
+          <div class="card">
+            <h3>Start New Recon</h3>
+            <form id="launch-form">
+              <label for="launch-domain">Domain(s) / TLD(s)
+                <textarea id="launch-domain" name="domain" rows="4" placeholder="example.com&#10;*.test.com, *.corp.com&#10;*.subdomain.example.*" required aria-required="true" aria-describedby="domain-help"></textarea>
+                <small id="domain-help" style="color: #94a3b8; font-size: 0.85rem; display: block; margin-top: 4px;">
+                  Enter one or more domains/wildcards. Separate with commas or newlines.
+                </small>
+              </label>
+              <label for="launch-wordlist">Wordlist path (optional, ffuf)
+                <input id="launch-wordlist" type="text" name="wordlist" placeholder="/app/recon_data/wordlists/subdomains.txt" />
+              </label>
+              <p class="muted">Leave blank to use Settings default. File must exist inside the container.</p>
+
+              <label for="launch-interval">Dashboard interval seconds
+                <input id="launch-interval" type="number" name="interval" min="5" />
+              </label>
+              <label class="checkbox">
+                <input id="launch-skip-nikto" type="checkbox" name="skip_nikto" />
+                Skip Nikto for this run
+              </label>
+              <button type="submit">Start Recon</button>
+            </form>
+            <div class="status" id="launch-status"></div>
+          </div>
+          <div class="card">
+            <h3>Quick Tips</h3>
+            <ul class="tips">
+              <li>Enter a domain like <code>example.com</code> or use a wildcard suffix such as <code>example.*</code> to fan out across configured TLDs.</li>
+              <li>Prefix with <code>*.</code> to scan a sub-scope, e.g., <code>*.apps.example.com</code>.</li>
+              <li>Provide a wordlist path if you want ffuf vhost brute-forcing; leave it blank to skip ffuf automatically.</li>
+              <li>Jobs queue safely when worker slots are full. Configure concurrency limits in Settings.</li>
+              <li>Targets reuse the shared <code>state.json</code>, so reruns pick up where they left off.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card" style="margin-top: 16px;">
+          <h3>Import Domain List</h3>
+          <p class="muted">Bulk-import hosts from a file or paste. Each host is added under its parent domain and the tooling (dnsx, httpx, screenshots, nuclei) runs on it — enumeration is skipped.</p>
+          <form id="import-form">
+            <label for="import-file">File (.txt, .csv, .asciipb, .json)
+              <input id="import-file" type="file" accept=".txt,.csv,.asciipb,.pb,.json,.list,text/plain" />
+            </label>
+            <label for="import-content">…or paste a list / asciipb content
+              <textarea id="import-content" name="content" rows="6" placeholder="accounts.google.com&#10;admin.google.com&#10;# or Google bug-hunters asciipb:&#10;domain: { fqdn: &quot;flash.android.com&quot; tier: TIER0 }"></textarea>
+            </label>
+            <label class="checkbox">
+              <input id="import-skip-nikto" type="checkbox" name="skip_nikto" />
+              Skip Nikto for imported hosts
+            </label>
+            <button type="submit">Import &amp; Run</button>
+          </form>
+          <div class="status" id="import-status"></div>
+        </div>
+      </div>
+    </section>
