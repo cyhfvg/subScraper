@@ -6,7 +6,7 @@
       <div class="module-body">
         <div class="card">
           <h3>What this is</h3>
-          <p>Recon Command Center runs a subdomain-to-vulnerability pipeline for a domain and keeps the results. You give it a domain, it enumerates subdomains, works out which hosts are alive, crawls URLs, pulls secrets out of JavaScript, screenshots what it finds, and scans for known issues. Everything lands in the Reports and Overview views and stays there between restarts.</p>
+          <p>subScraper is an intranet asset-discovery pipeline. Give it domains, IPs or CIDRs. It brute-forces DNS where needed, port-scans live hosts, enumerates HTTP vhosts, screenshots web apps, and runs nuclei/nikto. There is no internet OSINT and no third-party API keys.</p>
         </div>
 
         <div class="card">
@@ -27,7 +27,7 @@
             <li>Go to <strong>Launch Scan</strong> and enter a domain: <code>example.com</code>.</li>
             <li><code>*.example.com</code> scans the whole sub-scope. <code>example.*</code> fans out over the TLDs configured in <strong>Settings &rarr; Wildcard TLDs</strong>.</li>
             <li>Multiple targets at once: one per line, or comma-separated.</li>
-            <li>A wordlist path turns on ffuf vhost brute-forcing. Leave it blank to skip that step.</li>
+            <li>A wordlist path turns on DNSx DNS brute-force and ffuf vhost brute-forcing. Leave it blank to skip both.</li>
             <li>Nikto is slow. Tick <em>skip nikto</em> for a first pass, then re-run the target later without it.</li>
           </ul>
         </div>

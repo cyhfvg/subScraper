@@ -22,34 +22,40 @@ def run_downstream_pipeline(
             job_sleep(job_domain, 5)
 
     all_subs = wait_for_subdomains()
-    log(f"Total unique subdomains for {domain}: {len(all_subs)}")
+    log(f"Total unique hosts for {domain}: {len(all_subs)}")
+    parsed = parse_scan_target(domain)
     subs_file = write_subdomains_file(domain, all_subs)
 
     state = load_state()
     flags = ensure_target_state(state, domain)["flags"]
-    
-    # ---------- dnsx (DNS verification) ----------
-    if not flags.get("dnsx_done") and config.get("enable_dnsx", True):
-        # Get all discovered subdomains from state
+
+    # ---------- dnsx (DNS verification, domain hosts only) ----------
+    skip_dnsx = bool(parsed and parsed.is_network)
+    if skip_dnsx:
+        flags["dnsx_done"] = True
+        save_state(state)
+        update_step("dnsx", status="skipped", message="IP/CIDR target; dnsx skipped.", progress=0)
+    elif not flags.get("dnsx_done") and config.get("enable_dnsx", True):
         tgt_state = ensure_target_state(state, domain)
         all_discovered_subs = sorted(tgt_state["subdomains"].keys())
-        if all_discovered_subs:
-            log(f"=== dnsx DNS verification for {domain} ({len(all_discovered_subs)} hosts) ===")
-            update_step("dnsx", status="running", message=f"Verifying {len(all_discovered_subs)} subdomains with dnsx", progress=50)
+        name_hosts = [h for h in all_discovered_subs if not is_ip_or_cidr(h)]
+        if name_hosts:
+            log(f"=== dnsx DNS verification for {domain} ({len(name_hosts)} hosts) ===")
+            update_step("dnsx", status="running", message=f"Verifying {len(name_hosts)} hosts with dnsx", progress=50)
             if job_domain:
                 job_log_append(job_domain, "Waiting for dnsx slot...", "scheduler")
             with TOOL_GATES["dnsx"]:
                 if job_domain:
                     job_log_append(job_domain, "dnsx slot acquired.", "scheduler")
-                verified_subs = dnsx_verify(all_discovered_subs, domain, job_domain=job_domain, config=config)
-            log(f"dnsx verified {len(verified_subs)} resolving subdomains.")
+                verified_subs = dnsx_verify(name_hosts, domain, job_domain=job_domain, config=config)
+            log(f"dnsx verified {len(verified_subs)} resolving hosts.")
             flags["dnsx_done"] = True
             save_state(state)
-            update_step("dnsx", status="completed", message=f"dnsx verified {len(verified_subs)}/{len(all_discovered_subs)} subdomains resolve.", progress=100)
+            update_step("dnsx", status="completed", message=f"dnsx verified {len(verified_subs)}/{len(name_hosts)} hosts resolve.", progress=100)
         else:
             flags["dnsx_done"] = True
             save_state(state)
-            update_step("dnsx", status="skipped", message="No subdomains to verify.", progress=0)
+            update_step("dnsx", status="skipped", message="No hostnames to verify.", progress=0)
     elif not config.get("enable_dnsx", True):
         update_step("dnsx", status="skipped", message="dnsx disabled in settings.", progress=0)
         flags["dnsx_done"] = True
@@ -57,11 +63,39 @@ def run_downstream_pipeline(
     else:
         update_step("dnsx", status="skipped", message="dnsx already completed for this target.", progress=0)
 
-    # ---------- ffuf ----------
-    # Note: ffuf has been removed from the automated pipeline.
-    # It can now be run manually from the subdomain detail pages.
-    log("ffuf is now manual-only; skipping automated ffuf execution.")
-    update_step("ffuf", status="skipped", message="ffuf is manual-only (run from subdomain pages).", progress=0)
+    # ---------- nmap port scan + service detection ----------
+    web_urls: List[str] = list(ensure_target_state(state, domain).get("web_urls") or [])
+    if not flags.get("port_scan_done") and config.get("enable_port_scan", True):
+        state = load_state()
+        tgt_state = ensure_target_state(state, domain)
+        flags = tgt_state["flags"]
+        nmap_targets = sorted(tgt_state["subdomains"].keys())
+        if parsed is not None and parsed.is_network:
+            nmap_targets = [parsed.normalized]
+        elif not nmap_targets and parsed is not None:
+            nmap_targets = [parsed.normalized]
+        if nmap_targets:
+            update_step("port_scan", status="running", message=f"nmap scanning {len(nmap_targets)} targets", progress=40)
+            scanned = port_scan_hosts(nmap_targets, domain, config=config, job_domain=job_domain)
+            state = load_state()
+            web_urls = enrich_state_with_ports(state, domain, scanned)
+            tgt_state = ensure_target_state(state, domain)
+            tgt_state["web_urls"] = web_urls
+            flags = tgt_state["flags"]
+            flags["port_scan_done"] = True
+            save_state(state)
+            update_step("port_scan", status="completed", message=f"nmap found {len(scanned)} live hosts, {len(web_urls)} web endpoints.", progress=100)
+            job_log_append(job_domain, f"nmap live hosts={len(scanned)} web={len(web_urls)}", "port_scan")
+        else:
+            flags["port_scan_done"] = True
+            save_state(state)
+            update_step("port_scan", status="skipped", message="No hosts to port-scan.", progress=0)
+    elif not config.get("enable_port_scan", True):
+        update_step("port_scan", status="skipped", message="Port scan disabled in settings.", progress=0)
+        flags["port_scan_done"] = True
+        save_state(state)
+    else:
+        update_step("port_scan", status="skipped", message="Port scan already completed.", progress=0)
 
     # ---------- httpx ----------
     httpx_processed: set = set()
@@ -74,6 +108,9 @@ def run_downstream_pipeline(
             host for host in sorted(submap.keys())
             if host not in httpx_processed and not (submap.get(host) or {}).get("httpx")
         ]
+        for url in (tgt_state.get("web_urls") or []):
+            if url and url not in httpx_processed and url not in new_hosts:
+                new_hosts.append(url)
         if not flags.get("httpx_done") and not httpx_processed:
             log(f"=== httpx scan for {domain} ({len(submap)} hosts tracked) ===")
         if not new_hosts:
@@ -108,11 +145,35 @@ def run_downstream_pipeline(
             save_state(state)
             job_log_append(job_domain, f"httpx scanned {len(new_hosts)} hosts.", "httpx")
     
-    # ---------- waybackurls and gau (URL discovery) ----------
-    # NOTE: waybackurls and gau have been moved to manual execution from subdomain detail pages
-    # They are no longer part of the automatic workflow
-    # No need to mark them as they should remain unset for manual triggering
-
+    # ---------- vhost enum (Host header brute on live web services) ----------
+    state = load_state()
+    tgt_state = ensure_target_state(state, domain)
+    flags = tgt_state["flags"]
+    vhost_urls = list(tgt_state.get("web_urls") or [])
+    if not vhost_urls:
+        for host, entry in (tgt_state.get("subdomains") or {}).items():
+            httpx_info = (entry or {}).get("httpx") or {}
+            url = httpx_info.get("url") or ""
+            if url:
+                vhost_urls.append(url)
+            elif host:
+                vhost_urls.append(f"http://{host}")
+    if not flags.get("vhost_enum_done") and config.get("enable_vhost_enum", True):
+        update_step("vhost_enum", status="running", message=f"vhost enum on {len(vhost_urls)} URLs", progress=40)
+        discovered = vhost_enum_web_services(domain, vhost_urls, wordlist, config=config, job_domain=job_domain)
+        state = load_state()
+        add_subdomains_to_state(state, domain, discovered, "vhost")
+        flags = ensure_target_state(state, domain)["flags"]
+        flags["vhost_enum_done"] = True
+        save_state(state)
+        update_step("vhost_enum", status="completed", message=f"vhost enum found {len(discovered)} hosts.", progress=100)
+        job_log_append(job_domain, f"vhost enum found {len(discovered)} hosts.", "vhost_enum")
+    elif not config.get("enable_vhost_enum", True):
+        update_step("vhost_enum", status="skipped", message="vhost enum disabled in settings.", progress=0)
+        flags["vhost_enum_done"] = True
+        save_state(state)
+    else:
+        update_step("vhost_enum", status="skipped", message="vhost enum already completed.", progress=0)
     # ---------- screenshots ----------
     if not config.get("enable_screenshots", True):
         state = load_state()

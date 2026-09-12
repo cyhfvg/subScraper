@@ -196,15 +196,15 @@ def run_server(host: str, port: int, interval: int, use_https: bool = False, cer
 # ================== CLI ==================
 
 def main():
-    parser = argparse.ArgumentParser(description="Recon pipeline + web command center")
+    parser = argparse.ArgumentParser(description="Intranet asset discovery command center")
     parser.add_argument(
         "domain",
         nargs="?",
-        help="Target domain / TLD (if omitted, launch the web UI instead)."
+        help="Target domain, IPv4/IPv6, or CIDR. Omit to launch the web UI."
     )
     parser.add_argument(
         "-w", "--wordlist",
-        help="Wordlist path for ffuf subdomain brute-force (optional but recommended)."
+        help="Wordlist for dnsx DNS brute-force and ffuf vhost enum (recommended on intranet)."
     )
     parser.add_argument(
         "--interval",
@@ -309,6 +309,7 @@ def main():
         for target in targets:
             log(f"Running single pipeline execution for {target}.")
             try:
+                reset_target_scan_progress(target)
                 run_pipeline(target, args.wordlist, skip_nikto=args.skip_nikto, interval=args.interval)
             except KeyboardInterrupt:
                 log("Interrupted by user.")

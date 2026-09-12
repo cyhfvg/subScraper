@@ -8,8 +8,7 @@ When you run subScraper for the first time, an **interactive setup wizard** will
 1. **Wordlist Path** - Path to subdomain wordlist for brute-force (optional)
 2. **Concurrent Jobs** - Number of simultaneous scans (default: 1)
 3. **Nikto Preferences** - Whether to skip Nikto scans by default
-4. **Amass API Keys** - Configure data sources like Shodan, VirusTotal, SecurityTrails, etc.
-5. **Subfinder API Keys** - Configure additional API sources
+4. **DNS resolvers** - Intranet resolver IPs for dnsx brute
 
 ### Running the Setup Wizard
 ```bash

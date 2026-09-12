@@ -391,12 +391,10 @@ function renderSettings(config, tools) {
         Nikto: ${escapeHtml(toolSlots(config, 'nikto'))} ·
         Screenshots: ${escapeHtml(toolSlots(config, 'gowitness'))}
       </div>
-      <div><strong>Enumerators</strong><br>
-        Amass: ${config.enable_amass === false ? 'disabled' : `enabled (timeout=${escapeHtml(config.amass_timeout || 600)}s)`} ·
-        Subfinder: ${config.enable_subfinder === false ? 'disabled' : `enabled (t=${escapeHtml(config.subfinder_threads || 32)})`} ·
-        Assetfinder: ${config.enable_assetfinder === false ? 'disabled' : `enabled (t=${escapeHtml(config.assetfinder_threads || 10)})`} ·
-        Findomain: ${config.enable_findomain === false ? 'disabled' : `enabled (t=${escapeHtml(config.findomain_threads || 40)})`} ·
-        Sublist3r: ${config.enable_sublist3r === false ? 'disabled' : 'enabled'} ·
+      <div><strong>Pipeline</strong><br>
+        DNSx: ${config.enable_dnsx === false ? 'disabled' : 'enabled'} ·
+        Port scan: ${config.enable_port_scan === false ? 'disabled' : 'enabled'} ·
+        Vhost: ${config.enable_vhost_enum === false ? 'disabled' : 'enabled'} ·
         Screenshots: ${config.enable_screenshots === false ? 'disabled' : 'enabled'}
       </div>
     </div>
@@ -415,42 +413,24 @@ function renderSettings(config, tools) {
     settingsWildcardTlds.value = (config.wildcard_tlds || []).join(', ');
     settingsSkipNikto.checked = !!config.skip_nikto_by_default;
     settingsEnableScreenshots.checked = config.enable_screenshots !== false;
-    settingsEnableAmass.checked = config.enable_amass !== false;
-    settingsAmassTimeout.value = config.amass_timeout || 600;
     if (settingsDnsResolvers) settingsDnsResolvers.value = (config.dns_resolvers || []).join(', ');
-
-    settingsEnableSubfinder.checked = config.enable_subfinder !== false;
-    settingsEnableAssetfinder.checked = config.enable_assetfinder !== false;
-    settingsEnableFindomain.checked = config.enable_findomain !== false;
-    settingsEnableSublist3r.checked = config.enable_sublist3r !== false;
-    settingsEnableCrtsh.checked = config.enable_crtsh !== false;
-    settingsEnableGithubSubdomains.checked = config.enable_github_subdomains !== false;
-    settingsEnableDnsx.checked = config.enable_dnsx !== false;
-    settingsEnableWaybackurls.checked = config.enable_waybackurls !== false;
-    settingsEnableGau.checked = config.enable_gau !== false;
+    if (settingsPortScanPorts) settingsPortScanPorts.value = config.port_scan_ports || '';
+    if (settingsVhostMaxTargets) settingsVhostMaxTargets.value = config.vhost_max_targets || 20;
+    if (settingsEnableDnsx) settingsEnableDnsx.checked = config.enable_dnsx !== false;
+    if (settingsEnablePortScan) settingsEnablePortScan.checked = config.enable_port_scan !== false;
+    if (settingsEnableVhostEnum) settingsEnableVhostEnum.checked = config.enable_vhost_enum !== false;
     if (settingsEnableJsScan) settingsEnableJsScan.checked = config.enable_js_scan !== false;
     if (settingsBundledNucleiTemplates) settingsBundledNucleiTemplates.checked = config.use_bundled_nuclei_templates !== false;
-    settingsSubfinderThreads.value = config.subfinder_threads || 32;
-    settingsAssetfinderThreads.value = config.assetfinder_threads || 10;
-    settingsFindomainThreads.value = config.findomain_threads || 40;
     settingsGlobalRateLimit.value = config.global_rate_limit || 0;
     settingsMaxJobs.value = config.max_running_jobs || 1;
     if (settingsDefaultToolWorkers) settingsDefaultToolWorkers.value = config.default_tool_workers || 5;
-    settingsAmass.value = config.max_parallel_amass ?? 0;
-    settingsSubfinder.value = config.max_parallel_subfinder ?? 0;
-    settingsAssetfinder.value = config.max_parallel_assetfinder ?? 0;
-    settingsFindomain.value = config.max_parallel_findomain ?? 0;
-    settingsSublist3r.value = config.max_parallel_sublist3r ?? 0;
-    settingsCrtsh.value = config.max_parallel_crtsh ?? 0;
-    settingsGithubSubdomains.value = config.max_parallel_github_subdomains ?? 0;
-    settingsDnsx.value = config.max_parallel_dnsx ?? 0;
-    settingsHttpx.value = config.max_parallel_httpx ?? 0;
-    settingsFFUF.value = config.max_parallel_ffuf ?? 0;
-    settingsWaybackurls.value = config.max_parallel_waybackurls ?? 0;
-    settingsGau.value = config.max_parallel_gau ?? 0;
-    settingsNuclei.value = config.max_parallel_nuclei ?? 0;
-    settingsNikto.value = config.max_parallel_nikto ?? 0;
-    settingsGowitness.value = config.max_parallel_gowitness ?? 0;
+    if (settingsDnsx) settingsDnsx.value = config.max_parallel_dnsx ?? 0;
+    if (settingsNmap) settingsNmap.value = config.max_parallel_nmap ?? 0;
+    if (settingsHttpx) settingsHttpx.value = config.max_parallel_httpx ?? 0;
+    if (settingsFFUF) settingsFFUF.value = config.max_parallel_ffuf ?? 0;
+    if (settingsNuclei) settingsNuclei.value = config.max_parallel_nuclei ?? 0;
+    if (settingsNikto) settingsNikto.value = config.max_parallel_nikto ?? 0;
+    if (settingsGowitness) settingsGowitness.value = config.max_parallel_gowitness ?? 0;
     settingsDynamicMode.checked = config.dynamic_mode_enabled || false;
     settingsDynamicBaseJobs.value = config.dynamic_mode_base_jobs || 1;
     settingsDynamicMaxJobs.value = config.dynamic_mode_max_jobs || 10;

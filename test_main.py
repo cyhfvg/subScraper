@@ -623,16 +623,16 @@ class TestToolConcurrencyLimits:
         """Test that apply_concurrency_limits properly updates tool gates"""
         # Create test config with custom limits
         test_config = main.default_config()
-        test_config['max_parallel_amass'] = 5
-        test_config['max_parallel_subfinder'] = 3
+        test_config['max_parallel_dnsx'] = 5
+        test_config['max_parallel_nmap'] = 3
         test_config['max_parallel_httpx'] = 7
         
         # Apply limits
         main.apply_concurrency_limits(test_config)
         
         # Verify gates were updated
-        assert main.TOOL_GATES['amass'].snapshot()['limit'] == 5
-        assert main.TOOL_GATES['subfinder'].snapshot()['limit'] == 3
+        assert main.TOOL_GATES['dnsx'].snapshot()['limit'] == 5
+        assert main.TOOL_GATES['nmap'].snapshot()['limit'] == 3
         assert main.TOOL_GATES['httpx'].snapshot()['limit'] == 7
     
     def test_gate_snapshot_returns_correct_data(self):
@@ -906,7 +906,7 @@ class TestConfigurationManagement:
         config = main.default_config()
         required_keys = [
             'data_dir', 'state_file', 'dashboard_file', 'default_interval',
-            'max_running_jobs', 'enable_amass', 'enable_subfinder',
+            'max_running_jobs', 'enable_dnsx', 'enable_port_scan',
             'tool_flag_templates', 'setup_completed'
         ]
         for key in required_keys:
@@ -970,7 +970,7 @@ class TestConfigurationManagement:
         config = main.default_config()
         config['max_running_jobs'] = 10
         config['global_rate_limit'] = 1.5
-        config['max_parallel_amass'] = 3
+        config['max_parallel_dnsx'] = 3
         
         original_max_jobs = main.MAX_RUNNING_JOBS
         original_rate_limit = main.GLOBAL_RATE_LIMIT_DELAY
@@ -979,7 +979,7 @@ class TestConfigurationManagement:
         
         assert main.MAX_RUNNING_JOBS == 10
         assert main.GLOBAL_RATE_LIMIT_DELAY == 1.5
-        assert main.TOOL_GATES['amass'].snapshot()['limit'] == 3
+        assert main.TOOL_GATES['dnsx'].snapshot()['limit'] == 3
         
         # Restore
         main.MAX_RUNNING_JOBS = original_max_jobs
@@ -1086,7 +1086,7 @@ class TestDomainHandling:
         assert main._sanitize_domain_input('EXAMPLE.COM') == 'example.com'
         assert main._sanitize_domain_input('  example.com  ') == 'example.com'
         assert main._sanitize_domain_input('example.com\n\r') == 'example.com'
-        assert main._sanitize_domain_input('http://example.com') == 'http://example.com'
+        assert main._sanitize_domain_input('http://example.com') == 'example.com'
     
     def test_is_subdomain_input(self):
         """Test subdomain detection"""
@@ -1138,9 +1138,9 @@ class TestJobManagement:
         """Test job step initialization"""
         steps = main.init_job_steps(skip_nikto=False)
         assert isinstance(steps, dict)
-        assert 'amass' in steps
-        assert 'subfinder' in steps
-        assert 'httpx' in steps
+        assert 'dnsx' in steps
+        assert 'port_scan' in steps
+        assert 'vhost_enum' in steps
         assert 'nuclei' in steps
         assert 'nikto' in steps
         
@@ -1563,46 +1563,6 @@ class TestBackupSystem:
         success, message = main.delete_backup("../../../etc/passwd")
         assert success == False
 
-
-class TestAPIKeyManagement:
-    """Tests for API key management"""
-    
-    def setup_method(self):
-        """Setup test fixtures"""
-        self.temp_dir = tempfile.mkdtemp()
-        self.original_data_dir = main.DATA_DIR
-        self.original_db_file = main.DB_FILE
-        self.original_db_conn = main.DB_CONN
-        main.DATA_DIR = Path(self.temp_dir)
-        main.DB_FILE = main.DATA_DIR / "test_recon.db"
-        main.DB_CONN = None
-        main.ensure_dirs()
-        main.init_database()
-    
-    def teardown_method(self):
-        """Cleanup"""
-        if main.DB_CONN:
-            main.DB_CONN.close()
-        main.DATA_DIR = self.original_data_dir
-        main.DB_FILE = self.original_db_file
-        main.DB_CONN = self.original_db_conn
-        import shutil
-        if os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
-    
-    def test_save_and_get_api_keys(self):
-        """Test saving and retrieving API keys"""
-        amass_keys = {'shodan': 'test_shodan_key', 'virustotal': 'test_vt_key'}
-        subfinder_keys = {'shodan': 'test_shodan_key2'}
-        
-        success, message = main.save_all_api_keys(amass_keys, subfinder_keys)
-        assert success == True
-        
-        # Retrieve keys
-        result = main.get_all_api_keys()
-        assert 'amass' in result
-        assert 'subfinder' in result
-        assert result['amass'].get('shodan') == 'test_shodan_key'
 
 
 class TestCSVExport:

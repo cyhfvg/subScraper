@@ -14,6 +14,30 @@ from http import HTTPStatus
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from subscraper.discovery.ports import (
+    DEFAULT_PORT_SPEC,
+    WEB_PORTS,
+    HostPorts,
+    OpenPort,
+    build_nmap_command,
+    parse_nmap_xml,
+    web_endpoints_from_hosts,
+)
+from subscraper.discovery.vhost import (
+    VhostHit,
+    build_ffuf_vhost_command,
+    parse_ffuf_vhost_json,
+    vhost_host_pattern,
+)
+from subscraper.targets import (
+    ScanTarget,
+    TargetKind,
+    is_ip_or_cidr,
+    parse_scan_target,
+    parse_scan_targets,
+    target_file_id,
+)
+
 PROJECT_ROOT = Path(__file__).resolve().parent
 WEB_ROOT = PROJECT_ROOT / "web"
 FRAGMENT_DIR = PROJECT_ROOT / "subscraper" / "fragments"

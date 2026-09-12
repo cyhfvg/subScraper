@@ -4,7 +4,6 @@ class HandlerPostOpsMixin:
         allowed = {
             "/api/run",
             "/api/settings",
-            "/api/api-keys",
             "/api/jobs/pause",
             "/api/jobs/resume",
             "/api/jobs/resume-all",
@@ -254,13 +253,6 @@ class HandlerPostOpsMixin:
             self._send_json({"success": success, "message": message}, status=status)
             return
 
-        if self.path == "/api/api-keys":
-            amass_keys = payload.get("amass", {})
-            subfinder_keys = payload.get("subfinder", {})
-            success, message = save_all_api_keys(amass_keys, subfinder_keys)
-            status = HTTPStatus.OK if success else HTTPStatus.BAD_REQUEST
-            self._send_json({"success": success, "message": message}, status=status)
-            return
 
         if self.path == "/api/subdomain/mark":
             domain = payload.get("domain", "").strip().lower()
@@ -346,8 +338,8 @@ class HandlerPostOpsMixin:
                 self._send_json({"success": False, "message": "Domain, subdomain, and tool are required"}, status=HTTPStatus.BAD_REQUEST)
                 return
             
-            if tool not in ["waybackurls", "gau", "ffuf"]:
-                self._send_json({"success": False, "message": "Invalid tool. Allowed: waybackurls, gau, ffuf"}, status=HTTPStatus.BAD_REQUEST)
+            if tool != "ffuf":
+                self._send_json({"success": False, "message": "Invalid tool. Allowed: ffuf"}, status=HTTPStatus.BAD_REQUEST)
                 return
             
             state = load_state()
@@ -360,63 +352,19 @@ class HandlerPostOpsMixin:
             def run_tool_async():
                 try:
                     # Execute the tool
-                    if tool == "waybackurls":
-                        urls = waybackurls_enum(domain, job_domain=None)
-                        log(f"waybackurls found {len(urls)} URLs for {domain}")
-                    elif tool == "gau":
-                        urls = gau_enum(domain, job_domain=None)
-                        log(f"gau found {len(urls)} URLs for {domain}")
-                    elif tool == "ffuf":
-                        config = get_config()
-                        wordlist = resolve_wordlist_path(config.get("default_wordlist") or "")
-                        if not wordlist or not Path(wordlist).is_file():
-                            log(f"ffuf wordlist not configured or not found for {subdomain}")
-                            return
-
-                        
-                        # Run ffuf for the subdomain
-                        log(f"Running ffuf brute-force for {subdomain} using {wordlist}")
-                        subs_ffuf = ffuf_bruteforce(subdomain, wordlist, config=config, job_domain=None)
-                        log(f"ffuf found {len(subs_ffuf)} vhost subdomains for {subdomain}")
-                        
-                        # Store the new subdomains found by ffuf using the standard function
-                        state = load_state()
-                        add_subdomains_to_state(state, domain, subs_ffuf, "ffuf")
-                        
-                        # Mark ffuf as run for this domain
-                        tgt = ensure_target_state(state, domain)
-                        if "flags" not in tgt:
-                            tgt["flags"] = {}
-                        tgt["flags"]["ffuf_done"] = True
-                        
-                        save_state(state)
+                    config = get_config()
+                    wordlist = resolve_wordlist_path(config.get("default_wordlist") or "")
+                    if not wordlist or not Path(wordlist).is_file():
+                        log(f"ffuf wordlist not configured or not found for {subdomain}")
                         return
-                    else:
-                        return
-                    
-                    # Store endpoints in state (for waybackurls and gau)
-                    state = load_state()
-                    tgt = ensure_target_state(state, domain)
-                    
-                    # Initialize endpoints list if it doesn't exist
-                    if "endpoints" not in tgt:
-                        tgt["endpoints"] = []
-                    
-                    # Add new URLs to endpoints
-                    existing_endpoints = set(tgt.get("endpoints", []))
-                    for url in urls:
-                        if url and url not in existing_endpoints:
-                            tgt["endpoints"].append(url)
-                    
-                    # Mark tool as done
-                    if "flags" not in tgt:
-                        tgt["flags"] = {}
-                    if tool == "waybackurls":
-                        tgt["flags"]["waybackurls_done"] = True
-                    elif tool == "gau":
-                        tgt["flags"]["gau_done"] = True
-                    
-                    save_state(state)
+                    log(f"Running ffuf vhost brute-force for {subdomain} using {wordlist}")
+                    subs_ffuf = ffuf_bruteforce(subdomain, wordlist, config=config, job_domain=None)
+                    log(f"ffuf found {len(subs_ffuf)} vhost hosts for {subdomain}")
+                    state_inner = load_state()
+                    add_subdomains_to_state(state_inner, domain, subs_ffuf, "ffuf")
+                    tgt = ensure_target_state(state_inner, domain)
+                    tgt.setdefault("flags", {})["vhost_enum_done"] = True
+                    save_state(state_inner)
                 except Exception as e:
                     log(f"Error running {tool} for {domain}/{subdomain}: {e}")
             

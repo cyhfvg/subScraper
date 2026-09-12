@@ -209,7 +209,7 @@ class HandlerGetMixin:
             self._send_json({"workers": snapshot_workers()})
             return
         if self.path == "/api/api-keys":
-            self._send_json(get_all_api_keys())
+            self._send_json({"success": False, "message": "Internet API keys are not used in intranet mode."}, status=HTTPStatus.GONE)
             return
         if self.path == "/api/monitors":
             self._send_json({"monitors": list_monitors()})

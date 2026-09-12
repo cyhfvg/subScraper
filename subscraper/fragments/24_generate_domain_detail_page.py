@@ -383,20 +383,13 @@ function renderDomainDetail(info) {{
   `;
   
   const flagLabels = {{
-    amass_done: 'Amass',
-    subfinder_done: 'Subfinder',
-    assetfinder_done: 'Assetfinder',
-    findomain_done: 'Findomain',
-    sublist3r_done: 'Sublist3r',
-    crtsh_done: 'crt.sh',
-    github_subdomains_done: 'GitHub Subdomains',
     dnsx_done: 'DNSx',
-    ffuf_done: 'ffuf',
+    port_scan_done: 'Port scan',
     httpx_done: 'httpx',
-    waybackurls_done: 'Wayback URLs',
-    gau_done: 'GAU',
+    vhost_enum_done: 'vhost enum',
     screenshots_done: 'Screenshots',
     nuclei_done: 'Nuclei',
+    js_scan_done: 'JS Scan',
     nikto_done: 'Nikto'
   }};
   

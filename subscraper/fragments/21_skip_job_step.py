@@ -147,7 +147,7 @@ def resume_target_scan(domain: str, wordlist: Optional[str] = None,
         cleaned = str(wordlist).strip()
         if cleaned:
             wordlist_val = cleaned
-    return start_pipeline_job(normalized, wordlist_val, skip_flag, None)
+    return start_pipeline_job(normalized, wordlist_val, skip_flag, None, fresh=False)
 
 
 # Registrable-domain (eTLD+1) extraction. Not a full public-suffix list, just
@@ -170,7 +170,17 @@ _IMPORT_DOMAIN_RE = re.compile(
 
 
 def registrable_root(host: str) -> str:
-    """Return the eTLD+1 (registrable domain) for a host, best-effort."""
+    """返回用于分组的根标识. IP/CIDR 自身即根.
+
+    Args:
+        host: 主机或网段.
+
+    Returns:
+        str: 根标识.
+    """
+    parsed = parse_scan_target(host)
+    if parsed is not None and parsed.is_network:
+        return parsed.normalized
     host = (host or "").strip().lower().strip(".")
     while host.startswith("*."):
         host = host[2:]
@@ -184,19 +194,18 @@ def registrable_root(host: str) -> str:
 
 
 def parse_domain_import(content: str) -> List[str]:
-    """
-    Extract FQDNs from imported text. Supports:
-      - Plain lists (newline / comma separated)
-      - CSV / JSON (quoted values)
-      - Google bug-hunters .asciipb protobuf-text (fqdn: "host" entries)
-    Comment lines (# / //) and non-domain tokens (e.g. TIER0, {}) are ignored.
+    """从导入文本提取域名 / IP / CIDR.
+
+    Args:
+        content: 纯文本, CSV, JSON 或 asciipb.
+
+    Returns:
+        List[str]: 规范化目标.
     """
     if not content:
         return []
     candidates: List[str] = []
-    # Quoted values cover asciipb `fqdn: "..."`, JSON and CSV.
     candidates.extend(re.findall(r'"([^"]+)"', content))
-    # Bare tokens cover plain/comma lists.
     for line in content.splitlines():
         line = line.strip()
         if not line or line.startswith("#") or line.startswith("//"):
@@ -209,20 +218,20 @@ def parse_domain_import(content: str) -> List[str]:
     hosts: List[str] = []
     seen: set = set()
     for cand in candidates:
-        cleaned = _sanitize_domain_input(cand)
+        parsed = parse_scan_target(cand)
+        if parsed is None:
+            continue
+        cleaned = parsed.normalized
         if not cleaned or cleaned in seen:
             continue
-        if _IMPORT_DOMAIN_RE.match(cleaned):
+        if parsed.is_network or _IMPORT_DOMAIN_RE.match(cleaned):
             seen.add(cleaned)
             hosts.append(cleaned)
     return hosts
 
 
-# Enumerator flags pre-marked done for imported targets so the pipeline skips
-# subdomain discovery and jumps straight to downstream (dnsx/httpx/screenshots).
 _IMPORT_SKIP_ENUM_FLAGS = [
-    "amass_done", "subfinder_done", "assetfinder_done", "findomain_done",
-    "sublist3r_done", "crtsh_done", "github_subdomains_done",
+    "dns_brute_done",
 ]
 
 
@@ -258,7 +267,7 @@ def import_domains_and_run(content: str, skip_nikto: bool,
     dispatched: List[str] = []
     failures: List[str] = []
     for root in groups:
-        ok, msg = start_pipeline_job(root, None, skip_nikto, interval)
+        ok, msg = start_pipeline_job(root, None, skip_nikto, interval, fresh=False)
         if ok:
             dispatched.append(root)
         else:
@@ -313,7 +322,27 @@ def start_targets_from_input(domain_input: str, wordlist: Optional[str],
     return success_any, " ".join(summary_parts).strip(), details
 
 
-def start_pipeline_job(domain: str, wordlist: Optional[str], skip_nikto: bool, interval: Optional[int]) -> Tuple[bool, str]:
+def start_pipeline_job(domain: str, wordlist: Optional[str], skip_nikto: bool, interval: Optional[int], fresh: bool = True) -> Tuple[bool, str]:
+    """
+    排队或立即启动一次 pipeline. 默认 fresh=True, 清空步骤完成标记以便对同一目标重扫.
+
+    Args:
+        domain: 目标域名.
+        wordlist: 可选字典路径.
+        skip_nikto: 是否跳过 nikto.
+        interval: 仪表盘刷新间隔秒; None 用配置默认值.
+        fresh: True 时重置该目标的 done 标记与逐主机扫描结果. 恢复/续跑传 False.
+
+    Returns:
+        Tuple[bool, str]: (是否受理, 说明).
+
+    Raises:
+        无.
+
+    调用示例:
+        start_pipeline_job("home.lab", "/path/wl.txt", False, 30)
+        start_pipeline_job("home.lab", None, False, None, fresh=False)
+    """
     normalized = (domain or "").strip().lower()
     if not normalized:
         return False, "Domain is required."
@@ -353,6 +382,9 @@ def start_pipeline_job(domain: str, wordlist: Optional[str], skip_nikto: bool, i
         else:
             JOB_QUEUE.append(normalized)
             start_now = False
+
+    if fresh:
+        reset_target_scan_progress(normalized)
 
     if start_now:
         _start_job_thread(job_record)

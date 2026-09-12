@@ -10,10 +10,7 @@
 psutil>=5.9.0
 
 # --- Not installed from here -----------------------------------------------
-# The recon tools (amass, subfinder, httpx, nuclei, nikto, ffuf, gowitness,
-# ...) are separate binaries, not Python packages. The app detects your OS and
-# installs them with a package manager that fits - see the "How to use this
-# tool" page in the UI, or GET /api/tools. Sublist3r is the one recon tool that
-# is a Python package, and it is installed through that same flow.
-#
-# Test dependencies live in requirements-dev.txt.
+# The recon tools (nmap, dnsx, httpx, nuclei, nikto, ffuf, gowitness)
+# are separate binaries, not Python packages. The app detects your OS and
+# reports install commands; set SUBSCRAPER_SKIP_AUTO_INSTALL=1 on air-gapped
+# intranet hosts. Test dependencies live in requirements-dev.txt.

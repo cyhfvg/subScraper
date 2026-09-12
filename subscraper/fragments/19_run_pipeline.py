@@ -6,6 +6,21 @@ def run_pipeline(
     interval: int = DEFAULT_INTERVAL,
     job_domain: Optional[str] = None,
 ) -> None:
+    """执行内网资产发现流水线.
+
+    Args:
+        domain: 域名 / IP / CIDR.
+        wordlist: DNS 爆破与 vhost 字典.
+        skip_nikto: 是否跳过 nikto.
+        interval: 仪表盘刷新间隔.
+        job_domain: job 日志键, 默认等于 domain.
+
+    Returns:
+        None.
+
+    Raises:
+        JobCancelled: 用户取消任务.
+    """
     ensure_dirs()
     config = get_config()
     if not wordlist:
@@ -19,6 +34,7 @@ def run_pipeline(
                     message: Optional[str] = None, progress: Optional[int] = None) -> None:
         job_step_update(job_domain, step_name, status=status, message=message, progress=progress)
 
+    parsed = parse_scan_target(domain)
     state = load_state()
     tgt = ensure_target_state(state, domain)
     flags = tgt["flags"]
@@ -30,22 +46,15 @@ def run_pipeline(
     enumerators_done_event = threading.Event()
     downstream_started = threading.Event()
     downstream_thread_holder: Dict[str, threading.Thread] = {}
-    seen_cache = {
-        "amass": set(),
-        "subfinder": set(),
-        "assetfinder": set(),
-        "findomain": set(),
-        "sublist3r": set(),
-        "crtsh": set(),
-        "github-subdomains": set(),
-    }
+    seen_cache = {"dnsx": set()}
 
     def start_downstream_if_ready() -> None:
         if downstream_started.is_set():
             return
         current_state = load_state()
         sub_count = len(ensure_target_state(current_state, domain)["subdomains"])
-        if sub_count == 0 and not enumerators_done_event.is_set():
+        network_target = bool(parsed and parsed.is_network)
+        if sub_count == 0 and not enumerators_done_event.is_set() and not network_target:
             return
         downstream_started.set()
         t = threading.Thread(
@@ -67,141 +76,48 @@ def run_pipeline(
     flush_thread = threading.Thread(target=flush_loop, daemon=True)
     flush_thread.start()
 
-    # ---------- Parallel Subdomain Enumerators ----------
-    subdomain_input = is_subdomain_input(domain)
-    if subdomain_input and not flags.get("amass_done"):
-        log(f"Detected subdomain input ({domain}); seeding pipeline with that host.")
+    if parsed is not None and parsed.is_network:
+        log(f"Network target {parsed.normalized} ({parsed.kind.value}); skipping DNS brute.")
+        if parsed.kind in (TargetKind.IPV4, TargetKind.IPV6):
+            add_subdomains_to_state(state, domain, [parsed.normalized], "manual-input")
+        flags["dns_brute_done"] = True
+        flags["dnsx_done"] = True
+        save_state(state)
+        update_step("dnsx", status="skipped", message="IP/CIDR target; dnsx skipped.", progress=0)
+        start_downstream_if_ready()
+    elif is_subdomain_input(domain) and not flags.get("dns_brute_done"):
+        log(f"Detected host input ({domain}); seeding pipeline with that host.")
         add_subdomains_to_state(state, domain, [domain], "manual-input")
-        flags["amass_done"] = True
-        flags["subfinder_done"] = True
-        flags["assetfinder_done"] = True
+        flags["dns_brute_done"] = True
         save_state(state)
         start_downstream_if_ready()
-
-    if subdomain_input:
-        update_step("amass", status="skipped", message="Input is a subdomain; Amass skipped.", progress=0)
-        update_step("subfinder", status="skipped", message="Input is a subdomain; Subfinder skipped.", progress=0)
-        update_step("assetfinder", status="skipped", message="Input is a subdomain; Assetfinder skipped.", progress=0)
-        update_step("crtsh", status="skipped", message="Input is a subdomain; crt.sh skipped.", progress=0)
-        update_step("github-subdomains", status="skipped", message="Input is a subdomain; GitHub subdomains skipped.", progress=0)
+    elif not config.get("enable_dnsx", True):
+        update_step("dnsx", status="skipped", message="DNSx disabled in settings.", progress=0)
+        flags["dns_brute_done"] = True
+        flags["dnsx_done"] = True
+        save_state(state)
+    elif flags.get("dns_brute_done"):
+        log(f"dnsx brute already completed for {domain}; skipping wordlist brute.")
     else:
-        enumerator_specs = []
-        enable_subfinder = config.get("enable_subfinder", True)
-        enable_assetfinder = config.get("enable_assetfinder", True)
-        enable_findomain = config.get("enable_findomain", True)
-        enable_sublist3r = config.get("enable_sublist3r", True)
-        enable_crtsh = config.get("enable_crtsh", True)
-        enable_github_subdomains = config.get("enable_github_subdomains", True)
-
-        def maybe_add_enum(step_name: str, flag_key: str, desc: str, func, enabled: bool = True):
-            if not enabled:
-                update_step(step_name, status="skipped", message=f"{desc} disabled in settings.", progress=0)
-                return
-            if flags.get(flag_key):
-                update_step(step_name, status="skipped", message=f"{desc} already completed.", progress=0)
-                return
-            enumerator_specs.append((step_name, flag_key, desc, func))
-
-        if config.get("enable_amass", True):
-            maybe_add_enum(
-                "amass",
-                "amass_done",
-                "Amass",
-                lambda: amass_collect_subdomains(domain, config=config, job_domain=job_domain),
-            )
-        else:
-            update_step("amass", status="skipped", message="Amass disabled in settings.", progress=0)
-
-        maybe_add_enum(
-            "subfinder",
-            "subfinder_done",
-            "Subfinder",
-            lambda: subfinder_enum(domain, config, job_domain=job_domain),
-            enable_subfinder,
-        )
-        maybe_add_enum(
-            "assetfinder",
-            "assetfinder_done",
-            "Assetfinder",
-            lambda: assetfinder_enum(domain, config, job_domain=job_domain),
-            enable_assetfinder,
-        )
-        maybe_add_enum(
-            "findomain",
-            "findomain_done",
-            "Findomain",
-            lambda: findomain_enum(domain, config, job_domain=job_domain),
-            enable_findomain,
-        )
-        maybe_add_enum(
-            "sublist3r",
-            "sublist3r_done",
-            "Sublist3r",
-            lambda: sublist3r_enum(domain, job_domain=job_domain),
-            enable_sublist3r,
-        )
-        maybe_add_enum(
-            "crtsh",
-            "crtsh_done",
-            "crt.sh",
-            lambda: crtsh_enum(domain, job_domain=job_domain),
-            enable_crtsh,
-        )
-        maybe_add_enum(
-            "github-subdomains",
-            "github_subdomains_done",
-            "GitHub Subdomains",
-            lambda: github_subdomains_enum(domain, job_domain=job_domain),
-            enable_github_subdomains,
-        )
-
-        if enumerator_specs:
-            enum_results: Dict[str, Optional[List[str]]] = {}
-            enum_errors: Dict[str, str] = {}
-            lock = threading.Lock()
-
-            def enum_worker(name: str, func) -> None:
-                try:
-                    # Wait for tool slot if gate exists
-                    if name in TOOL_GATES:
-                        job_log_append(job_domain, f"Waiting for {name} slot...", "scheduler")
-                        with TOOL_GATES[name]:
-                            job_log_append(job_domain, f"{name} slot acquired.", "scheduler")
-                            subs = func() or []
-                    else:
-                        subs = func() or []
-                    with lock:
-                        enum_results[name] = subs
-                except Exception as exc:
-                    log(f"{name} enumeration failed: {exc}")
-                    job_log_append(job_domain, f"{name} failed: {exc}", name)
-                    with lock:
-                        enum_results[name] = None
-                        enum_errors[name] = str(exc)
-
-            threads = []
-            for step_name, _, desc, func in enumerator_specs:
-                update_step(step_name, status="running", message=f"{desc} in progress…", progress=40)
-                t = threading.Thread(target=enum_worker, args=(step_name, func), daemon=True)
-                threads.append((step_name, t))
-                t.start()
-
-            for _, t in threads:
-                t.join()
-
-            for step_name, flag_key, desc, _ in enumerator_specs:
-                subs = enum_results.get(step_name)
-                if subs is None:
-                    update_step(step_name, status="error", message=f"{desc} failed: {enum_errors.get(step_name, 'Unknown error')}", progress=100)
-                    continue
-                current_state = load_state()
-                add_subdomains_to_state(current_state, domain, subs, step_name)
-                ensure_target_state(current_state, domain)["flags"][flag_key] = True
-                save_state(current_state)
-                job_log_append(job_domain, f"{desc} identified {len(subs)} subdomains.", step_name)
-                update_step(step_name, status="completed", message=f"{desc} found {len(subs)} subdomains.", progress=100)
-                start_downstream_if_ready()
-
+        update_step("dnsx", status="running", message="dnsx DNS brute in progress…", progress=40)
+        try:
+            job_log_append(job_domain, "Waiting for dnsx slot...", "scheduler")
+            with TOOL_GATES["dnsx"]:
+                job_log_append(job_domain, "dnsx slot acquired.", "scheduler")
+                subs = dnsx_collect_subdomains(domain, config=config, job_domain=job_domain, wordlist=wordlist) or []
+            current_state = load_state()
+            add_subdomains_to_state(current_state, domain, subs, "dnsx")
+            ensure_target_state(current_state, domain)["flags"]["dns_brute_done"] = True
+            save_state(current_state)
+            job_log_append(job_domain, f"dnsx brute identified {len(subs)} hosts.", "dnsx")
+            update_step("dnsx", status="running", message=f"dnsx brute found {len(subs)} hosts.", progress=70)
+            start_downstream_if_ready()
+        except JobCancelled:
+            raise
+        except Exception as exc:
+            log(f"dnsx brute failed: {exc}")
+            job_log_append(job_domain, f"dnsx brute failed: {exc}", "dnsx")
+            update_step("dnsx", status="error", message=f"dnsx brute failed: {exc}", progress=100)
     enumerators_done_event.set()
     flush_thread.join()
     start_downstream_if_ready()
@@ -246,6 +162,7 @@ def _start_job_thread(job: Dict[str, Any]) -> None:
         except JobCancelled:
             cancelled = True
             log(f"Job {domain} cancelled by user")
+            reset_target_scan_progress(domain)
             job_set_status(domain, "cancelled", "Job deleted by user.")
         except Exception as exc:
             log(f"Recon pipeline failed for {domain}: {exc}", "error")
@@ -357,7 +274,7 @@ def restore_active_jobs() -> int:
         skip_nikto = bool(entry.get("skip_nikto", False))
         interval = entry.get("interval") or None
         try:
-            ok, msg = start_pipeline_job(domain, wordlist, skip_nikto, interval)
+            ok, msg = start_pipeline_job(domain, wordlist, skip_nikto, interval, fresh=False)
             if ok:
                 restored += 1
                 job_log_append(domain, "Job restored after app restart; resuming.", "scheduler")

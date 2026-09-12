@@ -40,14 +40,14 @@ class TestToolExecution:
     
     def test_check_tool_available_found(self):
         """Test check_tool when tool is available"""
-        with patch('shutil.which', return_value='/usr/bin/amass'):
-            result = main.check_tool('amass')
+        with patch('shutil.which', return_value='/usr/bin/dnsx'):
+            result = main.check_tool('dnsx')
             assert result == True
     
     def test_check_tool_available_not_found(self):
         """Test check_tool when tool is missing"""
         with patch('shutil.which', return_value=None):
-            result = main.check_tool('amass')
+            result = main.check_tool('dnsx')
             assert result == False
     
     def test_ensure_required_tools_all_present(self):
@@ -56,18 +56,6 @@ class TestToolExecution:
             # Should not raise or print warnings
             main.ensure_required_tools()
     
-    def test_parse_amass_output(self):
-        """Test parsing amass JSON output"""
-        amass_output = '{"name":"sub.example.com","domain":"example.com"}\n'
-        amass_output += '{"name":"api.example.com","domain":"example.com"}\n'
-        
-        with patch('builtins.open', create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value = BytesIO(amass_output.encode())
-            result = main.amass_collect_subdomains('test.json')
-        
-        # amass_collect_subdomains reads the file and extracts subdomains
-        # Implementation may vary, so we test the function exists and can be called
-        assert result is not None or result == []
     
     def test_run_command_success(self):
         """Test run_command with successful execution"""
@@ -586,13 +574,13 @@ class TestToolFlagTemplates:
     
     def test_normalize_tool_flag_templates(self):
         """Test template normalization"""
-        value = {'amass': '-config $CONFIG$', 'subfinder': '-t $THREADS$'}
-        
+        value = {'dnsx': '-rl 20', 'nmap': '-T4'}
+
         result = main._normalize_tool_flag_templates(value)
-        
+
         assert isinstance(result, dict)
-        assert 'amass' in result
-        assert 'subfinder' in result
+        assert result.get('dnsx') == '-rl 20'
+        assert result.get('nmap') == '-T4'
     
     def test_normalize_tool_flag_templates_invalid_input(self):
         """Test template normalization with invalid input"""
@@ -607,7 +595,7 @@ class TestToolFlagTemplates:
         """Test getting tool flag template"""
         config = main.default_config()
         
-        template = main.get_tool_flag_template('amass', config)
+        template = main.get_tool_flag_template('dnsx', config)
         
         # Should return string (empty or with value)
         assert isinstance(template, str)

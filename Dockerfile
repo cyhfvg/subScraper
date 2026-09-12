@@ -29,31 +29,12 @@ RUN case "${TARGETARCH}" in \
 
 ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
 
-# One RUN per tool so a single failure does not rebuild the whole set.
+# Intranet-only toolchain. Passive OSINT binaries are not installed.
 RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 RUN go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 RUN go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
-RUN go install -v github.com/tomnomnom/assetfinder@latest
-RUN go install -v github.com/tomnomnom/waybackurls@latest
-RUN go install -v github.com/lc/gau/v2/cmd/gau@latest
-RUN go install -v github.com/gwen001/github-subdomains@latest
 RUN go install -v github.com/ffuf/ffuf/v2@latest
 RUN go install -v github.com/sensepost/gowitness@latest
-RUN go install -v github.com/owasp-amass/amass/v4/...@latest
-
-RUN case "${TARGETARCH}" in \
-        amd64) FD_ASSET=findomain-linux.zip ;; \
-        arm64) FD_ASSET=findomain-aarch64.zip ;; \
-        arm) FD_ASSET=findomain-armv7.zip ;; \
-        *) FD_ASSET=findomain-linux.zip ;; \
-    esac \
-    && wget -q "https://github.com/Findomain/Findomain/releases/latest/download/${FD_ASSET}" -O /tmp/findomain.zip \
-    && unzip -qo /tmp/findomain.zip -d /tmp \
-    && find /tmp -maxdepth 2 -type f \( -name findomain -o -name 'findomain-*' \) ! -name '*.zip' -exec mv {} /root/go/bin/findomain \; \
-    && chmod +x /root/go/bin/findomain \
-    && rm -f /tmp/findomain.zip \
-    && findomain --version
 
 # Official templates must be in the image; offline hosts cannot download them.
 # main.py also looks at /root/nuclei-templates and /opt/nuclei-templates.
@@ -71,12 +52,14 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/usr/local/bin:${PATH}" \
     SUBSCRAPER_SKIP_AUTO_INSTALL=1
 
+# GitHub nikto 2.6+ load_modules() hard-requires XML::Writer (not in perl core).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         openssl \
         perl \
         libnet-ssleay-perl \
+        libxml-writer-perl \
         nmap \
         chromium \
         fonts-liberation \
@@ -93,8 +76,7 @@ RUN printf '#!/bin/sh\nexec perl /opt/nikto/program/nikto.pl "$@"\n' > /usr/loca
 
 WORKDIR /app
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r /app/requirements.txt \
-    && pip install --no-cache-dir sublist3r
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY main.py /app/
 COPY subscraper/ /app/subscraper/

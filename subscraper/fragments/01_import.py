@@ -74,27 +74,16 @@ HTML_REFRESH_SECONDS = DEFAULT_INTERVAL  # default; can be overridden
 MAX_JOB_LOG_LINES = 400
 MAX_JOB_LOG_LINE_LENGTH = 500
 
-# API Key provider lists
-AMASS_PROVIDERS = ["shodan", "virustotal", "securitytrails", "censys", "passivetotal", "binaryedge", "bevigil"]
-SUBFINDER_PROVIDERS = ["shodan", "censys", "virustotal", "binaryedge", "securitytrails", "passivetotal", "github"]
 
 # Severity levels for security findings
 SEVERITY_LEVELS = ['NONE', 'INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 
 # Tool names (can be adjusted per OS if needed)
 TOOLS = {
-    "amass": "amass",
-    "subfinder": "subfinder",
-    "assetfinder": "assetfinder",
-    "findomain": "findomain",
-    "sublist3r": "sublist3r",
-    "crtsh": "crtsh",  # Virtual tool for crt.sh API
-    "github-subdomains": "github-subdomains",
     "dnsx": "dnsx",
+    "nmap": "nmap",
     "ffuf": "ffuf",
     "httpx": "httpx",
-    "waybackurls": "waybackurls",
-    "gau": "gau",
     "nuclei": "nuclei",
     "nikto": "nikto",
     "gowitness": "gowitness",
@@ -103,18 +92,10 @@ TOOLS = {
 CONFIG_LOCK = threading.Lock()
 CONFIG: Dict[str, Any] = {}
 TEMPLATE_AWARE_TOOLS = [
-    "amass",
-    "subfinder",
-    "assetfinder",
-    "findomain",
-    "sublist3r",
-    "crtsh",
-    "github-subdomains",
     "dnsx",
+    "nmap",
     "ffuf",
     "httpx",
-    "waybackurls",
-    "gau",
     "nuclei",
     "nikto",
     "gowitness",
@@ -264,18 +245,10 @@ MAX_TOOL_WORKERS = 50
 SHARDED_TOOLS = {"httpx", "nuclei", "nikto"}
 
 TOOL_PARALLEL_FIELDS = {
-    "amass": "max_parallel_amass",
-    "subfinder": "max_parallel_subfinder",
-    "assetfinder": "max_parallel_assetfinder",
-    "findomain": "max_parallel_findomain",
-    "sublist3r": "max_parallel_sublist3r",
-    "crtsh": "max_parallel_crtsh",
-    "github-subdomains": "max_parallel_github_subdomains",
     "dnsx": "max_parallel_dnsx",
+    "nmap": "max_parallel_nmap",
     "ffuf": "max_parallel_ffuf",
     "httpx": "max_parallel_httpx",
-    "waybackurls": "max_parallel_waybackurls",
-    "gau": "max_parallel_gau",
     "gowitness": "max_parallel_gowitness",
     "nuclei": "max_parallel_nuclei",
     "nikto": "max_parallel_nikto",
@@ -310,18 +283,10 @@ def tool_worker_limit(tool: str, config: Optional[Dict[str, Any]] = None) -> int
 
 
 TOOL_GATES: Dict[str, ToolGate] = {
-    "amass": ToolGate(DEFAULT_TOOL_WORKERS),
-    "subfinder": ToolGate(DEFAULT_TOOL_WORKERS),
-    "assetfinder": ToolGate(DEFAULT_TOOL_WORKERS),
-    "findomain": ToolGate(DEFAULT_TOOL_WORKERS),
-    "sublist3r": ToolGate(DEFAULT_TOOL_WORKERS),
-    "crtsh": ToolGate(DEFAULT_TOOL_WORKERS),
-    "github-subdomains": ToolGate(DEFAULT_TOOL_WORKERS),
     "dnsx": ToolGate(DEFAULT_TOOL_WORKERS),
+    "nmap": ToolGate(DEFAULT_TOOL_WORKERS),
     "ffuf": ToolGate(DEFAULT_TOOL_WORKERS),
     "httpx": ToolGate(DEFAULT_TOOL_WORKERS),
-    "waybackurls": ToolGate(DEFAULT_TOOL_WORKERS),
-    "gau": ToolGate(DEFAULT_TOOL_WORKERS),
     "gowitness": ToolGate(DEFAULT_TOOL_WORKERS),
     "nuclei": ToolGate(DEFAULT_TOOL_WORKERS),
     "nikto": ToolGate(DEFAULT_TOOL_WORKERS),
@@ -341,7 +306,7 @@ RUNNING_JOBS: Dict[str, Dict[str, Any]] = {}
 COMPLETED_JOBS: Dict[str, Dict[str, Any]] = {}  # Store completed job reports
 MAX_COMPLETED_JOBS_PER_DOMAIN = 10  # Keep last N completed jobs per domain
 JOB_LOCK = threading.Lock()
-PIPELINE_STEPS = ["amass", "subfinder", "assetfinder", "findomain", "sublist3r", "crtsh", "github-subdomains", "dnsx", "httpx", "screenshots", "nuclei", "jsscan", "nikto"]
+PIPELINE_STEPS = ["dnsx", "port_scan", "httpx", "vhost_enum", "screenshots", "nuclei", "jsscan", "nikto"]
 
 # Global rate limiter
 RATE_LIMIT_LOCK = threading.Lock()

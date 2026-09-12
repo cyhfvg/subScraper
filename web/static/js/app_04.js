@@ -198,88 +198,39 @@ function renderWorkflowDiagram() {
   
   const html = `
     <div class="workflow-stage">
-      <div class="workflow-stage-title">Phase 1: Subdomain Enumeration</div>
+      <div class="workflow-stage-title">Phase 1: Asset discovery</div>
       <div class="workflow-tools">
-        <span class="workflow-tool enumeration">Amass</span>
-        <span class="workflow-tool enumeration">Subfinder</span>
-        <span class="workflow-tool enumeration">Assetfinder</span>
-        <span class="workflow-tool enumeration">Findomain</span>
-        <span class="workflow-tool enumeration">Sublist3r</span>
-        <span class="workflow-tool enumeration">crt.sh</span>
-        <span class="workflow-tool enumeration">GitHub-Subdomains</span>
         <span class="workflow-tool enumeration">DNSx</span>
+        <span class="workflow-tool enumeration">Nmap</span>
       </div>
-      <div class="workflow-description">Passive and active subdomain discovery using multiple data sources</div>
+      <div class="workflow-description">Intranet-only: DNS brute for domains, nmap port/service scan for IPs and CIDRs. No passive OSINT.</div>
     </div>
-    
-    <div style="text-align:center; margin:16px 0;">
-      <span class="workflow-arrow">↓</span>
-    </div>
-    
+    <div style="text-align:center; margin:16px 0;"><span class="workflow-arrow">↓</span></div>
     <div class="workflow-stage">
-      <div class="workflow-stage-title">Phase 2: HTTP Probing</div>
+      <div class="workflow-stage-title">Phase 2: Live web services</div>
       <div class="workflow-tools">
         <span class="workflow-tool probing">HTTPX</span>
+        <span class="workflow-tool brute-force">FFUF vhost</span>
       </div>
-      <div class="workflow-description">Probe subdomains for live HTTP services and gather response metadata</div>
+      <div class="workflow-description">Probe open web ports, then Host-header vhost enum against live HTTP services.</div>
     </div>
-    
-    <div style="text-align:center; margin:16px 0;">
-      <span class="workflow-arrow">↓</span>
-    </div>
-    
+    <div style="text-align:center; margin:16px 0;"><span class="workflow-arrow">↓</span></div>
     <div class="workflow-stage">
-      <div class="workflow-stage-title">Phase 3: Visual Capture</div>
+      <div class="workflow-stage-title">Phase 3: Screenshots</div>
       <div class="workflow-tools">
         <span class="workflow-tool capture">Gowitness</span>
       </div>
-      <div class="workflow-description">Capture screenshots of live web applications for visual analysis</div>
+      <div class="workflow-description">Capture screenshots of live web applications.</div>
     </div>
-    
-    <div style="text-align:center; margin:16px 0;">
-      <span class="workflow-arrow">↓</span>
-    </div>
-    
+    <div style="text-align:center; margin:16px 0;"><span class="workflow-arrow">↓</span></div>
     <div class="workflow-stage">
-      <div class="workflow-stage-title">Phase 4: Vulnerability Scanning</div>
+      <div class="workflow-stage-title">Phase 4: Vulnerability scanning</div>
       <div class="workflow-tools">
         <span class="workflow-tool scanning">Nuclei</span>
-      </div>
-      <div class="workflow-description">Template-based vulnerability scanning, using the official template set plus the templates bundled with this repo</div>
-    </div>
-    
-    <div style="text-align:center; margin:16px 0;">
-      <span class="workflow-arrow">↓</span>
-    </div>
-    
-    <div class="workflow-stage">
-      <div class="workflow-stage-title">Phase 5: JavaScript Analysis</div>
-      <div class="workflow-tools">
         <span class="workflow-tool js-analysis">JS Scan</span>
-      </div>
-      <div class="workflow-description">Fetches JavaScript from live hosts and archived URLs, then extracts secrets, hidden endpoints and parameter names. Results appear in the JS Findings card above and on each domain page.</div>
-    </div>
-    
-    <div style="text-align:center; margin:16px 0;">
-      <span class="workflow-arrow">↓</span>
-    </div>
-    
-    <div class="workflow-stage">
-      <div class="workflow-stage-title">Phase 6: Web Server Scanning</div>
-      <div class="workflow-tools">
         <span class="workflow-tool scanning">Nikto</span>
       </div>
-      <div class="workflow-description">Web server misconfiguration and dated-software checks. Slow, and skipped when a run opts out of it.</div>
-    </div>
-    
-    <div style="margin-top:24px; padding:16px; background:#0b152c; border-radius:12px; border:1px solid #1f2937;">
-      <div style="color:#fbbf24; font-weight:600; margin-bottom:8px;">📋 Manual, from subdomain pages</div>
-      <div class="workflow-tools">
-        <span class="workflow-tool brute-force">FFUF</span>
-        <span class="workflow-tool url-discovery">Waybackurls</span>
-        <span class="workflow-tool url-discovery">GAU</span>
-      </div>
-      <div class="workflow-description">Vhost brute-forcing and archived-URL discovery are triggered per subdomain, not by the pipeline. Their URLs feed the JS scan on the next run.</div>
+      <div class="workflow-description">Template vuln scan, JS secret/endpoint extraction from live hosts, and web server checks.</div>
     </div>
   `;
   

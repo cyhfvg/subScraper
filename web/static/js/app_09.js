@@ -209,39 +209,22 @@ if (settingsForm) {
         wildcard_tlds: settingsWildcardTlds ? settingsWildcardTlds.value : '',
         skip_nikto_by_default: settingsSkipNikto ? settingsSkipNikto.checked : false,
         enable_screenshots: settingsEnableScreenshots ? settingsEnableScreenshots.checked : true,
-        enable_amass: settingsEnableAmass ? settingsEnableAmass.checked : true,
-        amass_timeout: settingsAmassTimeout ? settingsAmassTimeout.value : '',
         dns_resolvers: settingsDnsResolvers ? settingsDnsResolvers.value : '',
 
-        enable_subfinder: settingsEnableSubfinder ? settingsEnableSubfinder.checked : true,
-        enable_assetfinder: settingsEnableAssetfinder ? settingsEnableAssetfinder.checked : true,
-        enable_findomain: settingsEnableFindomain ? settingsEnableFindomain.checked : true,
-        enable_sublist3r: settingsEnableSublist3r ? settingsEnableSublist3r.checked : true,
-        enable_crtsh: settingsEnableCrtsh ? settingsEnableCrtsh.checked : true,
-        enable_github_subdomains: settingsEnableGithubSubdomains ? settingsEnableGithubSubdomains.checked : true,
         enable_dnsx: settingsEnableDnsx ? settingsEnableDnsx.checked : true,
-        enable_waybackurls: settingsEnableWaybackurls ? settingsEnableWaybackurls.checked : true,
-        enable_gau: settingsEnableGau ? settingsEnableGau.checked : true,
+        enable_port_scan: settingsEnablePortScan ? settingsEnablePortScan.checked : true,
+        enable_vhost_enum: settingsEnableVhostEnum ? settingsEnableVhostEnum.checked : true,
         enable_js_scan: settingsEnableJsScan ? settingsEnableJsScan.checked : true,
         use_bundled_nuclei_templates: settingsBundledNucleiTemplates ? settingsBundledNucleiTemplates.checked : true,
-        subfinder_threads: settingsSubfinderThreads ? settingsSubfinderThreads.value : '',
-        assetfinder_threads: settingsAssetfinderThreads ? settingsAssetfinderThreads.value : '',
-        findomain_threads: settingsFindomainThreads ? settingsFindomainThreads.value : '',
+        port_scan_ports: settingsPortScanPorts ? settingsPortScanPorts.value : '',
+        vhost_max_targets: settingsVhostMaxTargets ? settingsVhostMaxTargets.value : '',
         global_rate_limit: settingsGlobalRateLimit ? settingsGlobalRateLimit.value : '',
         max_running_jobs: settingsMaxJobs ? settingsMaxJobs.value : '',
         default_tool_workers: settingsDefaultToolWorkers ? settingsDefaultToolWorkers.value : '',
-        max_parallel_amass: settingsAmass ? settingsAmass.value : '',
-        max_parallel_subfinder: settingsSubfinder ? settingsSubfinder.value : '',
-        max_parallel_assetfinder: settingsAssetfinder ? settingsAssetfinder.value : '',
-        max_parallel_findomain: settingsFindomain ? settingsFindomain.value : '',
-        max_parallel_sublist3r: settingsSublist3r ? settingsSublist3r.value : '',
-        max_parallel_crtsh: settingsCrtsh ? settingsCrtsh.value : '',
-        max_parallel_github_subdomains: settingsGithubSubdomains ? settingsGithubSubdomains.value : '',
         max_parallel_dnsx: settingsDnsx ? settingsDnsx.value : '',
+        max_parallel_nmap: settingsNmap ? settingsNmap.value : '',
         max_parallel_httpx: settingsHttpx ? settingsHttpx.value : '',
         max_parallel_ffuf: settingsFFUF ? settingsFFUF.value : '',
-        max_parallel_waybackurls: settingsWaybackurls ? settingsWaybackurls.value : '',
-        max_parallel_gau: settingsGau ? settingsGau.value : '',
         max_parallel_nuclei: settingsNuclei ? settingsNuclei.value : '',
         max_parallel_nikto: settingsNikto ? settingsNikto.value : '',
         max_parallel_gowitness: settingsGowitness ? settingsGowitness.value : '',
@@ -331,99 +314,6 @@ if (settingsForm) {
   console.error('Cannot attach submit handler: settingsForm is null');
 }
 
-// API Keys functionality
-const apiKeysForm = document.getElementById('api-keys-form');
-const apiKeysStatus = document.getElementById('api-keys-status');
-
-// Load existing API keys when settings tab is viewed
-async function loadApiKeys() {
-  try {
-    const resp = await fetch('/api/api-keys');
-    if (!resp.ok) throw new Error('Failed to load API keys');
-    const data = await resp.json();
-    
-    // Populate Amass keys
-    const amassKeys = data.amass || {};
-    AMASS_PROVIDERS.forEach(provider => {
-      const input = document.getElementById(`amass-${provider}`);
-      if (input && amassKeys[provider]) {
-        input.value = amassKeys[provider];
-      }
-    });
-    
-    // Populate Subfinder keys
-    const subfinderKeys = data.subfinder || {};
-    const githubInput = document.getElementById('subfinder-github');
-    if (githubInput && subfinderKeys.github) {
-      githubInput.value = subfinderKeys.github;
-    }
-  } catch (err) {
-    console.error('Error loading API keys:', err);
-  }
-}
-
-// Save API keys form handler
-if (apiKeysForm) {
-  apiKeysForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    
-    const amassKeys = {};
-    AMASS_PROVIDERS.forEach(provider => {
-      const input = document.getElementById(`amass-${provider}`);
-      if (input && input.value.trim()) {
-        amassKeys[provider] = input.value.trim();
-      }
-    });
-    
-    const subfinderKeys = {};
-    const githubInput = document.getElementById('subfinder-github');
-    if (githubInput && githubInput.value.trim()) {
-      subfinderKeys.github = githubInput.value.trim();
-    }
-    
-    // Copy shared keys to Subfinder
-    SUBFINDER_SHARED_PROVIDERS.forEach(provider => {
-      if (amassKeys[provider]) {
-        subfinderKeys[provider] = amassKeys[provider];
-      }
-    });
-    
-    try {
-      const resp = await fetch('/api/api-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amass: amassKeys, subfinder: subfinderKeys })
-      });
-      
-      if (!resp.ok) throw new Error('Failed to save API keys');
-      const result = await resp.json();
-      
-      if (result.success) {
-        apiKeysStatus.textContent = result.message || 'API keys saved successfully';
-        apiKeysStatus.className = 'status success';
-        setTimeout(() => {
-          apiKeysStatus.textContent = '';
-          apiKeysStatus.className = 'status';
-        }, 3000);
-      } else {
-        apiKeysStatus.textContent = result.message || 'Failed to save API keys';
-        apiKeysStatus.className = 'status error';
-      }
-    } catch (err) {
-      apiKeysStatus.textContent = err.message;
-      apiKeysStatus.className = 'status error';
-    }
-  });
-}
-
-// Load API keys when switching to API Keys tab
-settingsTabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    if (tab.dataset.tab === 'api-keys') {
-      loadApiKeys();
-    }
-  });
-});
 
 // Backup functionality
 async function loadBackups() {

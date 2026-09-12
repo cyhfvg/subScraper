@@ -7,7 +7,6 @@
           <button class="settings-tab active" data-tab="general">General</button>
           <button class="settings-tab" data-tab="users" id="user-mgmt-tab" style="display: none;">User Management</button>
           <button class="settings-tab" data-tab="toggles">Tool Toggles</button>
-          <button class="settings-tab" data-tab="api-keys">API Keys</button>
           <button class="settings-tab" data-tab="concurrency">Concurrency</button>
           <button class="settings-tab" data-tab="backup">Backup & Restore</button>
           <button class="settings-tab" data-tab="templates">Tool Templates</button>
@@ -41,18 +40,17 @@
                 <input id="settings-enable-screenshots" type="checkbox" name="enable_screenshots" />
                 Enable screenshots
               </label>
-              <label class="checkbox">
-                <input id="settings-enable-amass" type="checkbox" name="enable_amass" />
-                Enable Amass
-              </label>
-              <label>Amass timeout (seconds)
-                <input id="settings-amass-timeout" type="number" name="amass_timeout" min="0" />
-              </label>
               <label>DNS resolvers (intranet)
                 <input id="settings-dns-resolvers" type="text" name="dns_resolvers" placeholder="10.0.0.1, 10.0.0.2" />
               </label>
-              <p class="muted">Used by Amass and DNSx. Comma or space separated IPs. Empty = public DNS, usually unusable on intranet.</p>
-
+              <p class="muted">Used by DNSx brute and verification. Comma or space separated IPs. Empty = OS resolver.</p>
+              <label>Port scan spec
+                <input id="settings-port-scan-ports" type="text" name="port_scan_ports" placeholder="80,443,8080 or top-1000" />
+              </label>
+              <p class="muted">nmap -p list, or top-N. Default is a built-in intranet service set.</p>
+              <label>Max vhost targets
+                <input id="settings-vhost-max-targets" type="number" name="vhost_max_targets" min="1" max="200" />
+              </label>
             </div>
           </div>
 
@@ -96,43 +94,18 @@
           <div class="settings-subtab-content" data-tab-content="toggles">
             <div class="card">
               <h3>Tool Toggle Controls</h3>
-              <h4>Subdomain Enumeration Tools</h4>
-              <label class="checkbox">
-                <input id="settings-enable-subfinder" type="checkbox" name="enable_subfinder" />
-                Enable Subfinder
-              </label>
-              <label class="checkbox">
-                <input id="settings-enable-assetfinder" type="checkbox" name="enable_assetfinder" />
-                Enable Assetfinder
-              </label>
-              <label class="checkbox">
-                <input id="settings-enable-findomain" type="checkbox" name="enable_findomain" />
-                Enable Findomain
-              </label>
-              <label class="checkbox">
-                <input id="settings-enable-sublist3r" type="checkbox" name="enable_sublist3r" />
-                Enable Sublist3r
-              </label>
-              <label class="checkbox">
-                <input id="settings-enable-crtsh" type="checkbox" name="enable_crtsh" />
-                Enable crt.sh
-              </label>
-              <label class="checkbox">
-                <input id="settings-enable-github-subdomains" type="checkbox" name="enable_github_subdomains" />
-                Enable GitHub Subdomains
-              </label>
+              <p class="muted">Intranet-only pipeline. Passive OSINT sources are removed.</p>
               <label class="checkbox">
                 <input id="settings-enable-dnsx" type="checkbox" name="enable_dnsx" />
                 Enable DNSx
               </label>
-              <h4>URL Discovery Tools</h4>
               <label class="checkbox">
-                <input id="settings-enable-waybackurls" type="checkbox" name="enable_waybackurls" />
-                Enable Waybackurls
+                <input id="settings-enable-port-scan" type="checkbox" name="enable_port_scan" />
+                Enable nmap port scan
               </label>
               <label class="checkbox">
-                <input id="settings-enable-gau" type="checkbox" name="enable_gau" />
-                Enable GAU
+                <input id="settings-enable-vhost-enum" type="checkbox" name="enable_vhost_enum" />
+                Enable vhost enumeration
               </label>
               <label class="checkbox">
                 <input id="settings-enable-js-scan" type="checkbox" name="enable_js_scan" />
@@ -145,193 +118,6 @@
             </div>
           </div>
 
-          <div class="settings-subtab-content" data-tab-content="api-keys">
-            <div class="card">
-              <h3>🔑 API Keys Configuration</h3>
-              <p class="muted">Configure API keys for enhanced subdomain enumeration. Most tools work without API keys, but adding them significantly improves results and rate limits.</p>
-              
-              <div style="background: #0b152c; border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin: 20px 0;">
-                <h4 style="margin-top: 0; color: #60a5fa;">ℹ️ Important Information</h4>
-                <ul class="tips" style="margin-bottom: 0;">
-                  <li><strong>API keys are stored in tool-specific config files</strong></li>
-                  <li>Amass keys: <code>~/.config/amass/config.ini</code></li>
-                  <li>Subfinder keys: <code>~/.config/subfinder/provider-config.yaml</code></li>
-                  <li>After saving keys, restart any active scans to apply changes</li>
-                </ul>
-              </div>
-
-              <form id="api-keys-form">
-                <h4 style="margin-top: 24px;">Amass API Keys</h4>
-                <p class="muted">Amass supports multiple data sources for passive subdomain enumeration.</p>
-                
-                <div style="display: grid; gap: 16px; margin-top: 16px;">
-                  <!-- Shodan -->
-                  <div style="background: #050b18; border: 1px solid #1f2937; border-radius: 10px; padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                      <div>
-                        <strong style="font-size: 15px; color: #e2e8f0;">Shodan</strong>
-                        <span class="badge" style="background: #16a34a; color: white; margin-left: 8px; font-size: 11px;">FREE TIER</span>
-                      </div>
-                    </div>
-                    <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">
-                      Search engine for Internet-connected devices. Free tier: 100 queries/month.
-                      <a href="https://account.shodan.io/" target="_blank" style="color: #60a5fa; font-size: 13px;">→ Get key</a>
-                    </p>
-                    <label style="display: block; margin-top: 12px;">
-                      <span style="font-size: 13px; color: var(--muted);">API Key:</span>
-                      <input type="text" id="amass-shodan" name="amass-shodan" placeholder="Enter Shodan API key (optional)" style="width: 100%; margin-top: 4px;" />
-                    </label>
-                  </div>
-
-                  <!-- VirusTotal -->
-                  <div style="background: #050b18; border: 1px solid #1f2937; border-radius: 10px; padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                      <div>
-                        <strong style="font-size: 15px; color: #e2e8f0;">VirusTotal</strong>
-                        <span class="badge" style="background: #16a34a; color: white; margin-left: 8px; font-size: 11px;">FREE TIER</span>
-                      </div>
-                    </div>
-                    <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">
-                      Analyzes files and URLs for malware, includes passive DNS. Free tier: 4 requests/minute.
-                      <a href="https://www.virustotal.com/gui/my-apikey" target="_blank" style="color: #60a5fa; font-size: 13px;">→ Get key</a>
-                    </p>
-                    <label style="display: block; margin-top: 12px;">
-                      <span style="font-size: 13px; color: var(--muted);">API Key:</span>
-                      <input type="text" id="amass-virustotal" name="amass-virustotal" placeholder="Enter VirusTotal API key (optional)" style="width: 100%; margin-top: 4px;" />
-                    </label>
-                  </div>
-
-                  <!-- SecurityTrails -->
-                  <div style="background: #050b18; border: 1px solid #1f2937; border-radius: 10px; padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                      <div>
-                        <strong style="font-size: 15px; color: #e2e8f0;">SecurityTrails</strong>
-                        <span class="badge" style="background: #16a34a; color: white; margin-left: 8px; font-size: 11px;">FREE TIER</span>
-                      </div>
-                    </div>
-                    <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">
-                      DNS and domain intelligence platform. Free tier: 50 API calls/month.
-                      <a href="https://securitytrails.com/app/account/credentials" target="_blank" style="color: #60a5fa; font-size: 13px;">→ Get key</a>
-                    </p>
-                    <label style="display: block; margin-top: 12px;">
-                      <span style="font-size: 13px; color: var(--muted);">API Key:</span>
-                      <input type="text" id="amass-securitytrails" name="amass-securitytrails" placeholder="Enter SecurityTrails API key (optional)" style="width: 100%; margin-top: 4px;" />
-                    </label>
-                  </div>
-
-                  <!-- Censys -->
-                  <div style="background: #050b18; border: 1px solid #1f2937; border-radius: 10px; padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                      <div>
-                        <strong style="font-size: 15px; color: #e2e8f0;">Censys</strong>
-                        <span class="badge" style="background: #16a34a; color: white; margin-left: 8px; font-size: 11px;">FREE TIER</span>
-                      </div>
-                    </div>
-                    <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">
-                      Internet-wide scanning and certificate data. Free tier: 250 queries/month.
-                      <a href="https://search.censys.io/account/api" target="_blank" style="color: #60a5fa; font-size: 13px;">→ Get key</a>
-                    </p>
-                    <label style="display: block; margin-top: 12px;">
-                      <span style="font-size: 13px; color: var(--muted);">API Key:</span>
-                      <input type="text" id="amass-censys" name="amass-censys" placeholder="Enter Censys API key (optional)" style="width: 100%; margin-top: 4px;" />
-                    </label>
-                  </div>
-
-                  <!-- PassiveTotal -->
-                  <div style="background: #050b18; border: 1px solid #1f2937; border-radius: 10px; padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                      <div>
-                        <strong style="font-size: 15px; color: #e2e8f0;">PassiveTotal (RiskIQ)</strong>
-                        <span class="badge" style="background: #16a34a; color: white; margin-left: 8px; font-size: 11px;">FREE TIER</span>
-                      </div>
-                    </div>
-                    <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">
-                      Threat intelligence platform with passive DNS. Free community edition available.
-                      <a href="https://community.riskiq.com/settings" target="_blank" style="color: #60a5fa; font-size: 13px;">→ Get key</a>
-                    </p>
-                    <label style="display: block; margin-top: 12px;">
-                      <span style="font-size: 13px; color: var(--muted);">API Key:</span>
-                      <input type="text" id="amass-passivetotal" name="amass-passivetotal" placeholder="Enter PassiveTotal API key (optional)" style="width: 100%; margin-top: 4px;" />
-                    </label>
-                  </div>
-
-                  <!-- BinaryEdge -->
-                  <div style="background: #050b18; border: 1px solid #1f2937; border-radius: 10px; padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                      <div>
-                        <strong style="font-size: 15px; color: #e2e8f0;">BinaryEdge</strong>
-                        <span class="badge" style="background: #f59e0b; color: white; margin-left: 8px; font-size: 11px;">PAID ONLY</span>
-                      </div>
-                    </div>
-                    <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">
-                      Cybersecurity data platform. Starting at $10/month for 10,000 queries.
-                      <a href="https://app.binaryedge.io/account/api" target="_blank" style="color: #60a5fa; font-size: 13px;">→ Get key</a>
-                    </p>
-                    <label style="display: block; margin-top: 12px;">
-                      <span style="font-size: 13px; color: var(--muted);">API Key:</span>
-                      <input type="text" id="amass-binaryedge" name="amass-binaryedge" placeholder="Enter BinaryEdge API key (optional)" style="width: 100%; margin-top: 4px;" />
-                    </label>
-                  </div>
-
-                  <!-- BeVigil -->
-                  <div style="background: #050b18; border: 1px solid #1f2937; border-radius: 10px; padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                      <div>
-                        <strong style="font-size: 15px; color: #e2e8f0;">BeVigil</strong>
-                        <span class="badge" style="background: #16a34a; color: white; margin-left: 8px; font-size: 11px;">FREE TIER</span>
-                      </div>
-                    </div>
-                    <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">
-                      Mobile app security platform with OSINT API. Free tier available with rate limits.
-                      <a href="https://bevigil.com/osint-api" target="_blank" style="color: #60a5fa; font-size: 13px;">→ Get key</a>
-                    </p>
-                    <label style="display: block; margin-top: 12px;">
-                      <span style="font-size: 13px; color: var(--muted);">API Key:</span>
-                      <input type="text" id="amass-bevigil" name="amass-bevigil" placeholder="Enter BeVigil API key (optional)" style="width: 100%; margin-top: 4px;" />
-                    </label>
-                  </div>
-                </div>
-
-                <h4 style="margin-top: 32px;">Subfinder API Keys</h4>
-                <p class="muted">Subfinder aggregates data from multiple passive sources. Note: Shodan, VirusTotal, Censys, SecurityTrails, PassiveTotal, and BinaryEdge use the same keys as configured above.</p>
-                
-                <div style="display: grid; gap: 16px; margin-top: 16px;">
-                  <!-- GitHub Token -->
-                  <div style="background: #050b18; border: 1px solid #1f2937; border-radius: 10px; padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                      <div>
-                        <strong style="font-size: 15px; color: #e2e8f0;">GitHub Personal Access Token</strong>
-                        <span class="badge" style="background: #16a34a; color: white; margin-left: 8px; font-size: 11px;">FREE</span>
-                      </div>
-                    </div>
-                    <p style="font-size: 13px; color: var(--muted); margin: 8px 0;">
-                      Search GitHub code for subdomain mentions. Rate limits: 5,000 requests/hour.
-                      <a href="https://github.com/settings/tokens" target="_blank" style="color: #60a5fa; font-size: 13px;">→ Create token</a>
-                    </p>
-                    <p style="font-size: 12px; color: #fbbf24; margin-top: 4px;"><strong>Permissions needed:</strong> public_repo (or repo for private repos)</p>
-                    <label style="display: block; margin-top: 12px;">
-                      <span style="font-size: 13px; color: var(--muted);">API Token:</span>
-                      <input type="text" id="subfinder-github" name="subfinder-github" placeholder="Enter GitHub Personal Access Token (optional)" style="width: 100%; margin-top: 4px;" />
-                    </label>
-                  </div>
-                </div>
-
-                <div style="background: rgba(22, 163, 74, 0.1); border: 1px solid #16a34a; border-radius: 12px; padding: 16px; margin-top: 24px;">
-                  <h5 style="margin: 0 0 8px 0; color: #86efac;">💡 Pro Tips</h5>
-                  <ul style="margin: 0; padding-left: 20px; color: var(--muted); font-size: 13px;">
-                    <li style="margin-bottom: 8px;">Start with free tiers - you can discover many subdomains without paying</li>
-                    <li style="margin-bottom: 8px;">Shodan, VirusTotal, and SecurityTrails offer the best value for free tiers</li>
-                    <li style="margin-bottom: 8px;">GitHub token is completely free and very useful for finding subdomains in code</li>
-                    <li style="margin-bottom: 8px;">Combine multiple free sources for comprehensive coverage</li>
-                    <li>Consider paid plans only if you're doing high-volume scanning regularly</li>
-                  </ul>
-                </div>
-
-                <button type="submit" style="margin-top: 20px;">Save API Keys</button>
-                <div class="status" id="api-keys-status"></div>
-              </form>
-            </div>
-          </div>
 
           <div class="settings-subtab-content" data-tab-content="concurrency">
             <div class="card">
@@ -353,39 +139,11 @@
                 <button type="button" class="btn small" id="settings-reset-tool-slots">Use this for every tool</button>
                 <span class="muted" id="settings-tool-slots-hint" style="font-size:0.85rem;">Clears the per-tool overrides below.</span>
               </div>
-              <h4>Per-Tool Thread Controls</h4>
-              <label>Subfinder threads
-                <input id="settings-subfinder-threads" type="number" name="subfinder_threads" min="1" />
-              </label>
-              <label>Assetfinder threads
-                <input id="settings-assetfinder-threads" type="number" name="assetfinder_threads" min="1" />
-              </label>
-              <label>Findomain threads
-                <input id="settings-findomain-threads" type="number" name="findomain_threads" min="1" />
-              </label>
               <h4>Per-Tool Parallel Slots</h4>
               <p class="muted" style="font-size:0.85rem; margin-top:0;">Leave at 0 to follow "Workers per tool" above. Set a number only where a tool needs its own limit.</p>
-              <h5 style="color: var(--muted); font-size: 14px; margin-top: 16px;">Subdomain Enumeration Tools</h5>
-              <label>Amass parallel slots
-                <input id="settings-amass" type="number" name="max_parallel_amass" min="0" max="50" placeholder="0 = use default" />
-              </label>
-              <label>Subfinder parallel slots
-                <input id="settings-subfinder" type="number" name="max_parallel_subfinder" min="0" max="50" placeholder="0 = use default" />
-              </label>
-              <label>Assetfinder parallel slots
-                <input id="settings-assetfinder" type="number" name="max_parallel_assetfinder" min="0" max="50" placeholder="0 = use default" />
-              </label>
-              <label>Findomain parallel slots
-                <input id="settings-findomain" type="number" name="max_parallel_findomain" min="0" max="50" placeholder="0 = use default" />
-              </label>
-              <label>Sublist3r parallel slots
-                <input id="settings-sublist3r" type="number" name="max_parallel_sublist3r" min="0" max="50" placeholder="0 = use default" />
-              </label>
-              <label>Crt.sh parallel slots
-                <input id="settings-crtsh" type="number" name="max_parallel_crtsh" min="0" max="50" placeholder="0 = use default" />
-              </label>
-              <label>GitHub-Subdomains parallel slots
-                <input id="settings-github-subdomains" type="number" name="max_parallel_github_subdomains" min="0" max="50" placeholder="0 = use default" />
+              <h5 style="color: var(--muted); font-size: 14px; margin-top: 16px;">Discovery</h5>
+              <label>Nmap parallel slots
+                <input id="settings-nmap" type="number" name="max_parallel_nmap" min="0" max="50" placeholder="0 = use default" />
               </label>
               
               <h5 style="color: var(--muted); font-size: 14px; margin-top: 16px;">DNS & HTTP Tools</h5>
@@ -399,13 +157,6 @@
                 <input id="settings-ffuf" type="number" name="max_parallel_ffuf" min="0" max="50" placeholder="0 = use default" />
               </label>
               
-              <h5 style="color: var(--muted); font-size: 14px; margin-top: 16px;">URL Discovery Tools</h5>
-              <label>Waybackurls parallel slots
-                <input id="settings-waybackurls" type="number" name="max_parallel_waybackurls" min="0" max="50" placeholder="0 = use default" />
-              </label>
-              <label>GAU parallel slots
-                <input id="settings-gau" type="number" name="max_parallel_gau" min="0" max="50" placeholder="0 = use default" />
-              </label>
               
               <h5 style="color: var(--muted); font-size: 14px; margin-top: 16px;">Scanning & Analysis Tools</h5>
               <label>Nuclei parallel slots
@@ -480,26 +231,8 @@
               <h3>Command Flag Templates</h3>
               <p class="muted">Customize flags for each tool with variables such as <code>$DOMAIN$</code>, <code>$WORDLIST$</code>, <code>$OUTPUT$</code>, <code>$OUTPUT_JSON$</code>, <code>$INPUT_FILE$</code>, <code>$TARGET_URL$</code>, <code>$SUBDOMAIN$</code>, <code>$TARGETS_FILE$</code>, <code>$OUTPUT_PREFIX$</code>, <code>$OUTPUT_DIR$</code>, <code>$DB_PATH$</code>, <code>$THREADS$</code>, and <code>$HOST_HEADER$</code>.</p>
               <div class="template-grid">
-                <label>Amass flags
-                  <textarea id="template-amass" class="template-input" placeholder="-passive"></textarea>
-                </label>
-                <label>Subfinder flags
-                  <textarea id="template-subfinder" class="template-input" placeholder="-all"></textarea>
-                </label>
-                <label>Assetfinder flags
-                  <textarea id="template-assetfinder" class="template-input" placeholder=""></textarea>
-                </label>
-                <label>Findomain flags
-                  <textarea id="template-findomain" class="template-input" placeholder=""></textarea>
-                </label>
-                <label>Sublist3r flags
-                  <textarea id="template-sublist3r" class="template-input" placeholder=""></textarea>
-                </label>
-                <label>crt.sh flags
-                  <textarea id="template-crtsh" class="template-input" placeholder=""></textarea>
-                </label>
-                <label>GitHub Subdomains flags
-                  <textarea id="template-github-subdomains" class="template-input" placeholder=""></textarea>
+                <label>Nmap flags
+                  <textarea id="template-nmap" class="template-input" placeholder="-T4"></textarea>
                 </label>
                 <label>DNSx flags
                   <textarea id="template-dnsx" class="template-input" placeholder="-silent"></textarea>
@@ -509,12 +242,6 @@
                 </label>
                 <label>HTTPX flags
                   <textarea id="template-httpx" class="template-input" placeholder="-silent"></textarea>
-                </label>
-                <label>Waybackurls flags
-                  <textarea id="template-waybackurls" class="template-input" placeholder=""></textarea>
-                </label>
-                <label>GAU flags
-                  <textarea id="template-gau" class="template-input" placeholder=""></textarea>
                 </label>
                 <label>Nuclei flags
                   <textarea id="template-nuclei" class="template-input" placeholder="-severity medium,high"></textarea>

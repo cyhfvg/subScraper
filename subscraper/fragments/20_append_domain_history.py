@@ -484,7 +484,7 @@ def resume_job(domain: str) -> Tuple[bool, str]:
 
 
 def delete_job(domain: str = "", job_id: str = "") -> Tuple[bool, str]:
-    """删除排队中、运行中或已完成的 Job.
+    """删除排队中、运行中或已完成的 Job, 并清空该目标的步骤完成标记.
 
     Args:
         domain: 运行中/排队中任务的域名.
@@ -507,8 +507,10 @@ def delete_job(domain: str = "", job_id: str = "") -> Tuple[bool, str]:
 
     if job_id:
         removed_completed = False
+        completed_domain = ""
         with JOB_LOCK:
             if job_id in COMPLETED_JOBS:
+                completed_domain = str(COMPLETED_JOBS[job_id].get("domain") or "").strip().lower()
                 COMPLETED_JOBS.pop(job_id, None)
                 removed_completed = True
         if removed_completed:
@@ -519,6 +521,7 @@ def delete_job(domain: str = "", job_id: str = "") -> Tuple[bool, str]:
             except Exception as exc:
                 log(f"Failed to delete completed job {job_id}: {exc}", "error")
                 return False, f"Failed to delete completed job {job_id}."
+            reset_target_scan_progress(completed_domain or normalized)
             log(f"Deleted completed job {job_id}")
             return True, f"Deleted completed job {job_id}."
 
@@ -541,6 +544,7 @@ def delete_job(domain: str = "", job_id: str = "") -> Tuple[bool, str]:
 
     if queued_removed:
         cleanup_job_control(normalized)
+        reset_target_scan_progress(normalized)
         persist_active_jobs()
         log(f"Deleted queued job {normalized}")
         return True, f"Deleted queued job {normalized}."
@@ -550,6 +554,7 @@ def delete_job(domain: str = "", job_id: str = "") -> Tuple[bool, str]:
         if not ctrl.request_cancel():
             RUNNING_JOBS.pop(normalized, None)
             cleanup_job_control(normalized)
+            reset_target_scan_progress(normalized)
             persist_active_jobs()
             return True, f"Removed job {normalized}."
         job_set_status(normalized, "cancelling", "Delete requested; stopping pipeline.")

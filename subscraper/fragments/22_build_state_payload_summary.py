@@ -206,7 +206,7 @@ def build_state_payload_summary() -> Dict[str, Any]:
     tool_info = {}
     for name in TOOLS.keys():
         try:
-            tool_info[name] = ("crtsh" if name == "crtsh" else (resolve_tool_path_cached(name) or ""))
+            tool_info[name] = resolve_tool_path_cached(name) or ""
         except Exception:
             tool_info[name] = ""
     return {
@@ -272,7 +272,7 @@ def build_state_payload() -> Dict[str, Any]:
     tool_info = {}
     for name in TOOLS.keys():
         try:
-            tool_info[name] = ("crtsh" if name == "crtsh" else (resolve_tool_path_cached(name) or ""))
+            tool_info[name] = resolve_tool_path_cached(name) or ""
         except Exception:
             tool_info[name] = ""
     return {

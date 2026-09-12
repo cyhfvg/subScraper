@@ -1,31 +1,29 @@
-# Recon Command Center
+# subScraper (intranet)
 
-https://deepwiki.com/The-XSS-Rat/subScraper/7.1-testing-infrastructure
+纯内网资产发现指挥台. 给定域名、IPv4/IPv6 或 CIDR, 做主动发现, 不访问互联网 OSINT API.
 
-Recon Command Center is a single-file orchestrator for common reconnaissance pipelines. It runs traditional subdomain enumeration tools, probes discovered hosts, and executes vulnerability scanning workflows while presenting live progress in a rich web UI.
+流水线:
+
+1. DNS 爆破 (dnsx + 本地 resolver, 仅域名)
+2. 端口与存活服务 (nmap -sV)
+3. Web 探活 (httpx)
+4. vhost 枚举 (ffuf Host 头)
+5. Web 截图 (gowitness)
+6. 漏洞扫描 (nuclei 本地模板 + nikto)
+7. 可选: 对存活站点做 JS 密钥/接口提取
 
 ## Highlights
 
-- **Full pipeline automation** – Amass/Subfinder/Assetfinder/Findomain/Sublist3r feed ffuf, httpx, screenshot capture, nuclei, and nikto in one go.
-- **User authentication & management** – Secure login system with admin and regular user roles. Create, edit, and delete users through the web UI. See [USER_MANAGEMENT_AND_HTTPS.md](USER_MANAGEMENT_AND_HTTPS.md) for details.
-- **HTTPS support** – Serve the web UI over HTTPS with automatic self-signed certificate generation or bring your own certificates. See [USER_MANAGEMENT_AND_HTTPS.md](USER_MANAGEMENT_AND_HTTPS.md) for details.
-- **Stateful & resumable** – Results live in `recon_data/state.json`, so re-running a target picks up exactly where it left off. Jobs can be paused/resumed live.
-- **Persistent job reports** – Completed scan reports remain visible in the dashboard with completion timestamps. All job history persists across restarts in `recon_data/completed_jobs.json`.
-- **Live dashboard** – A modern SPA served from `main.py` tracks jobs, queue, worker slots, tool availability, and detailed per-program reports.
-- **System resource monitoring** – Real-time monitoring of CPU, memory, disk, and network usage with automatic warnings when thresholds are exceeded. Helps ensure the system isn't overwhelmed.
-- **System Logs** – Dedicated logs view with advanced filtering (by source, level, text search) and sorting. Filter preferences persist between reloads.
-- **Automatic file cleanup** – Automatically removes old temporary files, scan results, and backups to keep disk usage under control. Configurable retention periods for different file types. See [CLEANUP_AND_PAGINATION.md](CLEANUP_AND_PAGINATION.md) for details.
-- **Actionable reports** – Each target gets a dedicated page with sortable/filterable tables, paginated views, per-tool sections, command history, severity badges, and a progress overview.
-- **Screenshots gallery with pagination** – Browse large collections of screenshots with pagination controls (configurable page size, top/bottom navigation). See [CLEANUP_AND_PAGINATION.md](CLEANUP_AND_PAGINATION.md) for details.
-- **Command history & exports** – Every command executed is logged; you can export JSON or CSV snapshots at any time.
-- **Monitors** – Point the UI at a newline-delimited URL (supports wildcards like `*.corp.com` or `corp.*`). The monitor polls the file, launches new jobs when entries appear, and surfaces health/status in its own tab.
-- **Concurrency controls** – One "workers per tool" setting (default 5) scales every tool at once; per-tool caps override it where a tool needs its own limit. httpx, nuclei and nikto split a host batch across those workers, so raising it speeds up a single scan, not just parallel jobs. Set it in Settings or with `--tool-workers N`.
-- **Docker support** – Multi-platform Docker container with all tools pre-installed. Works on Linux (amd64, arm64, armv7).
-- **OS-aware tool installation** – Detects the OS, distribution and package managers actually present (APT/DNF/pacman/zypper/apk/snap/Homebrew/MacPorts/Scoop/winget/Chocolatey/go/pip), installs each tool with a method that fits, skips anything that would hang on a sudo prompt, and prints instructions matching *your* machine instead of assuming Ubuntu.
-- **JS findings on the dashboard** – Secrets, hidden endpoints and parameters found in JavaScript are summarised on the Overview page, per target, so you see them without opening each report.
-- **"How to use this tool" page** – A getting-started view in the UI with a live tool-availability check, per-OS install commands, a one-click install of what's missing, and a troubleshooting table.
-- **Bundled nuclei templates** – `nuclei-templates/` ships 34 hand-written templates for high/critical CVEs that have no template in the official `projectdiscovery/nuclei-templates` repo (Vault, Zabbix, Argo CD, Kibana, Harbor, Traefik, Cisco ASA/FTD, 18 WordPress plugins and more). They run alongside the official set on every nuclei step; toggle under Settings.
-- **Bug bounty agent API** – Load a program's full scope, launch recon across it, and read back assets, findings and a ranked attack surface over `/api/agent/*`, authenticated with scoped, revocable API keys. See [AGENT_API.md](AGENT_API.md).
+- **Intranet only** – 无 crt.sh / subfinder / wayback / Shodan 等被动源, 无第三方 API key.
+- **DOMAIN or IP** – `corp.local`, `10.0.0.8`, `10.0.0.0/24` 均可作为任务目标.
+- **User authentication & management** – admin/普通用户. 见 [USER_MANAGEMENT_AND_HTTPS.md](USER_MANAGEMENT_AND_HTTPS.md).
+- **HTTPS support** – 自签或自备证书. 见 [USER_MANAGEMENT_AND_HTTPS.md](USER_MANAGEMENT_AND_HTTPS.md).
+- **Stateful & resumable** – `recon_data/` 持久化, 任务可暂停/恢复/删除.
+- **Live dashboard** – jobs, queue, workers, reports, screenshot gallery.
+- **Screenshots gallery** – 对存活 Web 资产截图保留.
+- **Concurrency controls** – Settings 或 `--tool-workers N`.
+- **Bundled nuclei templates** – `nuclei-templates/` 随仓库分发, 离线可用.
+- **Local agent API** – `/api/agent/*` 仍可用于内网自动化, 见 [AGENT_API.md](AGENT_API.md). 不加载外网赏金项目.
 
 1. Dynamic queue management to fit YOUR pc: <img width="1055" height="976" alt="image" src="https://github.com/user-attachments/assets/c59393dd-2036-411e-b082-13c7f21241a4" />
 2. Auto backup + backup and restore: <img width="1881" height="973" alt="image" src="https://github.com/user-attachments/assets/8fc07597-c205-48de-b4d7-d6399a2a70da" />
@@ -56,10 +54,8 @@ python3 main.py
 ```
 
 The setup wizard will:
-- Configure basic settings (wordlist path, concurrent jobs, nikto preferences)
-- Set up API keys for tools like Amass and Subfinder (optional but recommended)
-- Create configuration files for all tools
-- Display clear next steps to get started
+- Configure wordlist, concurrent jobs, nikto, intranet DNS resolvers, nmap port spec
+- Display next steps
 
 **Skip Setup (Not Recommended):**
 ```bash
@@ -79,12 +75,10 @@ python3 main.py --https
 # Launch with custom SSL certificate
 python3 main.py --https --cert /path/to/cert.pem --key /path/to/key.pem
 
-# Run a one-off target directly from the CLI
-python3 main.py example.com --wordlist ./w.txt --skip-nikto
-
-# Wildcards are supported
-python3 main.py 'acme.*'        # expands using Settings ➜ wildcard TLDs
-python3 main.py '*.apps.acme.com'
+# Run a one-off target from the CLI
+python3 main.py corp.local --wordlist ./subs.txt --skip-nikto
+python3 main.py 10.0.0.0/24 -w ./hosts.txt
+python3 main.py 192.168.1.10
 ```
 
 ### Docker Installation

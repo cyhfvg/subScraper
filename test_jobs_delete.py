@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Job 删除行为: 队列移除, 运行中取消, 已完成记录删除."""
+"""Job 删除行为: 队列移除, 运行中取消, 已完成记录删除, 并重置步骤标记以便重扫."""
 
 import os
 import sys
@@ -43,12 +43,13 @@ class TestDeleteJob:
             "logs": [],
         }
         main.JOB_QUEUE.append("queued.com")
-        with patch.object(main, "persist_active_jobs"):
+        with patch.object(main, "persist_active_jobs"), patch.object(main, "reset_target_scan_progress") as reset:
             ok, message = main.delete_job(domain="queued.com")
         assert ok is True
         assert "queued.com" not in main.RUNNING_JOBS
         assert "queued.com" not in main.JOB_QUEUE
         assert "Deleted queued" in message
+        reset.assert_called_once_with("queued.com")
 
     def test_delete_running_job_requests_cancel(self) -> None:
         thread = MagicMock()
@@ -70,12 +71,13 @@ class TestDeleteJob:
         job_id = "done.com_111.2"
         main.COMPLETED_JOBS[job_id] = {"domain": "done.com", "status": "completed"}
         db = MagicMock()
-        with patch.object(main, "get_db", return_value=db):
+        with patch.object(main, "get_db", return_value=db), patch.object(main, "reset_target_scan_progress") as reset:
             ok, message = main.delete_job(job_id=job_id)
         assert ok is True
         assert job_id not in main.COMPLETED_JOBS
         db.execute.assert_called_once()
         assert "Deleted completed" in message
+        reset.assert_called_once_with("done.com")
 
     def test_snapshot_includes_job_id(self) -> None:
         main.RUNNING_JOBS["snap.com"] = {
@@ -96,3 +98,78 @@ class TestDeleteJob:
             assert False, "expected JobCancelled"
         except main.JobCancelled as exc:
             assert exc.domain == "x.com"
+
+
+class TestResetTargetScanProgress:
+    def setup_method(self) -> None:
+        self._running = main.RUNNING_JOBS
+        self._queue = main.JOB_QUEUE
+        main.RUNNING_JOBS = {}
+        main.JOB_QUEUE = deque()
+
+    def teardown_method(self) -> None:
+        main.RUNNING_JOBS = self._running
+        main.JOB_QUEUE = self._queue
+
+    def test_clears_done_flags_and_host_scans(self) -> None:
+        state = {
+            "targets": {
+                "home.lab": {
+                    "flags": {
+                        "dns_brute_done": True,
+                        "httpx_done": True,
+                        "dnsx_done": True,
+                        "nuclei_done": True,
+                    },
+                    "subdomains": {
+                        "www.home.lab": {
+                            "sources": ["amass"],
+                            "httpx": {"url": "http://www.home.lab"},
+                            "nuclei": [{"template": "x"}],
+                            "nikto": [{"id": 1}],
+                            "screenshot": "www.png",
+                            "scans": {"httpx": "t", "nuclei": "t"},
+                        }
+                    },
+                    "js_scan": {"secrets": [{"type": "key"}]},
+                }
+            }
+        }
+        with patch.object(main, "load_state", return_value=state), patch.object(main, "save_state") as save:
+            main.reset_target_scan_progress("home.lab")
+        tgt = state["targets"]["home.lab"]
+        assert tgt["flags"]["dns_brute_done"] is False
+        assert tgt["flags"]["httpx_done"] is False
+        assert tgt["flags"]["dnsx_done"] is False
+        assert tgt["flags"]["nuclei_done"] is False
+        host = tgt["subdomains"]["www.home.lab"]
+        assert host["sources"] == ["amass"]
+        assert host["httpx"] is None
+        assert host["nuclei"] == []
+        assert host["nikto"] == []
+        assert host["screenshot"] is None
+        assert host["scans"] == {}
+        assert "js_scan" not in tgt
+        save.assert_called_once()
+
+    def test_start_pipeline_job_fresh_resets_progress(self) -> None:
+        with patch.object(main, "get_config", return_value={"default_interval": 30, "default_wordlist": ""}), \
+             patch.object(main, "reset_target_scan_progress") as reset, \
+             patch.object(main, "_start_job_thread"), \
+             patch.object(main, "persist_active_jobs"), \
+             patch.object(main, "ensure_job_control"):
+            ok, message = main.start_pipeline_job("home.lab", None, False, 30, fresh=True)
+        assert ok is True
+        reset.assert_called_once_with("home.lab")
+
+
+    def test_start_pipeline_job_resume_keeps_progress(self) -> None:
+        with patch.object(main, "get_config", return_value={"default_interval": 30, "default_wordlist": ""}), \
+             patch.object(main, "reset_target_scan_progress") as reset, \
+             patch.object(main, "_start_job_thread"), \
+             patch.object(main, "persist_active_jobs"), \
+             patch.object(main, "ensure_job_control"):
+            ok, message = main.start_pipeline_job("home.lab", None, False, 30, fresh=False)
+        assert ok is True
+        reset.assert_not_called()
+

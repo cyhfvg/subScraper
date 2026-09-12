@@ -179,10 +179,8 @@ function renderSubdomainDetail(info, history, endpoints, flags) {{
   const interesting = info.interesting;
   const comments = info.comments || [];
   
-  // Check if content discovery has been run
-  const waybackurlsDone = flags?.waybackurls_done || false;
-  const gauDone = flags?.gau_done || false;
-  const ffufDone = flags?.ffuf_done || false;
+  const ffufDone = flags?.vhost_enum_done || flags?.ffuf_done || false;
+
   
   let html = '';
   
@@ -198,14 +196,8 @@ function renderSubdomainDetail(info, history, endpoints, flags) {{
         ${{interesting === false ? '<span class="badge" style="background: #ef4444; color: white; margin-left: 8px;">🚫 Not Interesting</span>' : ''}}
       </div>
       <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-        <button class="btn" onclick="runContentDiscovery('waybackurls')" style="background: #ec4899;">
-          🔍 Run Waybackurls ${{waybackurlsDone ? '✓' : ''}}
-        </button>
-        <button class="btn" onclick="runContentDiscovery('gau')" style="background: #8b5cf6;">
-          🔍 Run GAU ${{gauDone ? '✓' : ''}}
-        </button>
         <button class="btn" onclick="runContentDiscovery('ffuf')" style="background: #f59e0b;">
-          🔨 Run ffuf Brute-force ${{ffufDone ? '✓' : ''}}
+          Run ffuf vhost ${{ffufDone ? 'done' : ''}}
         </button>
       </div>
       <div id="content-discovery-status" style="margin-top: 12px; padding: 8px; border-radius: 6px; display: none;"></div>

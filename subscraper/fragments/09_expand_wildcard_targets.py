@@ -1,29 +1,35 @@
 """Fragment 09_expand_wildcard_targets.py. Loaded into the main module namespace."""
 def expand_wildcard_targets(raw: str, config: Optional[Dict[str, Any]] = None) -> List[str]:
+    """展开通配目标, IP/CIDR 原样通过.
+
+    Args:
+        raw: 逗号或换行分隔的域名 / IP / CIDR.
+        config: 含 wildcard_tlds 的配置.
+
+    Returns:
+        List[str]: 去重后的规范化目标.
+
+    Raises:
+        无.
+
+    调用示例:
+        expand_wildcard_targets("10.0.0.0/24\\ncorp.local")
     """
-    Expand wildcard targets from input string. Supports multiple domains
-    separated by commas or newlines.
-    
-    Examples:
-      Single domain: "example.com"
-      Wildcard: "*.example.com"
-      TLD wildcard: "example.*"
-      Multiple domains: "example.com, test.com" or "example.com\ntest.com"
-      Multiple wildcards: "*.example.com\n*.test.com"
-    """
-    # Parse multiple domains from input
     domain_inputs = _parse_multiple_domains(raw)
     if not domain_inputs:
         return []
-    
+
     all_candidates: List[str] = []
-    
-    # Process each domain input
     for domain_input in domain_inputs:
+        parsed = parse_scan_target(domain_input)
+        if parsed is not None and parsed.is_network:
+            all_candidates.append(parsed.normalized)
+            continue
+
         normalized = _sanitize_domain_input(domain_input)
         if not normalized:
             continue
-        
+
         while normalized.startswith("*."):
             normalized = normalized[2:]
         trailing_any_tld = normalized.endswith(".*")
@@ -32,8 +38,7 @@ def expand_wildcard_targets(raw: str, config: Optional[Dict[str, Any]] = None) -
         normalized = normalized.strip(".")
         if not normalized:
             continue
-        
-        # Expand TLD wildcards if present
+
         if trailing_any_tld:
             cfg = config or get_config()
             tlds = _normalize_tld_list(cfg.get("wildcard_tlds"))
@@ -43,8 +48,7 @@ def expand_wildcard_targets(raw: str, config: Optional[Dict[str, Any]] = None) -
                 all_candidates.append(f"{normalized}.{suffix}")
         else:
             all_candidates.append(normalized)
-    
-    # Deduplicate results
+
     deduped: List[str] = []
     seen: set = set()
     for candidate in all_candidates:
@@ -97,51 +101,44 @@ def update_config_settings(values: Dict[str, Any]) -> Tuple[bool, str, Dict[str,
             cfg["skip_nikto_by_default"] = new_skip
             changed = True
 
-    if "enable_amass" in values:
-        new_amass = bool_from_value(values.get("enable_amass"), cfg.get("enable_amass", True))
-        if cfg.get("enable_amass", True) != new_amass:
-            cfg["enable_amass"] = new_amass
-            changed = True
-
-    for key in ["enable_subfinder", "enable_assetfinder", "enable_findomain", "enable_sublist3r", "enable_screenshots", "enable_crtsh", "enable_github_subdomains", "enable_dnsx", "enable_waybackurls", "enable_gau", "enable_js_scan",
-                "use_bundled_nuclei_templates"]:
+    for key in [
+        "enable_screenshots",
+        "enable_dnsx",
+        "enable_js_scan",
+        "enable_port_scan",
+        "enable_vhost_enum",
+        "use_bundled_nuclei_templates",
+    ]:
         if key in values:
             new_value = bool_from_value(values.get(key), cfg.get(key, True))
             if cfg.get(key, True) != new_value:
                 cfg[key] = new_value
                 changed = True
 
-    # Handle global rate limit (can be 0 or positive float)
-    if "global_rate_limit" in values:
+    if "port_scan_ports" in values:
+        new_ports = str(values.get("port_scan_ports") or "").strip() or DEFAULT_PORT_SPEC
+        if cfg.get("port_scan_ports") != new_ports:
+            cfg["port_scan_ports"] = new_ports
+            changed = True
+
+    if "vhost_max_targets" in values:
         try:
-            new_rate_limit = max(0.0, float(values.get("global_rate_limit")))
+            new_max = max(1, min(200, int(values.get("vhost_max_targets"))))
         except (TypeError, ValueError):
-            return False, "Global rate limit must be a number >= 0.", cfg
-        if cfg.get("global_rate_limit", 0.0) != new_rate_limit:
-            cfg["global_rate_limit"] = new_rate_limit
+            return False, "vhost_max_targets must be an integer >= 1.", cfg
+        if cfg.get("vhost_max_targets") != new_max:
+            cfg["vhost_max_targets"] = new_max
             changed = True
 
     concurrency_fields = {
-        "max_running_jobs": "Max concurrent jobs",  # not inheritable: jobs, not tools
-        "max_parallel_amass": "Amass parallel slots",
-        "max_parallel_subfinder": "Subfinder parallel slots",
-        "max_parallel_assetfinder": "Assetfinder parallel slots",
-        "max_parallel_findomain": "Findomain parallel slots",
-        "max_parallel_sublist3r": "Sublist3r parallel slots",
-        "max_parallel_crtsh": "Crt.sh parallel slots",
-        "max_parallel_github_subdomains": "GitHub-Subdomains parallel slots",
+        "max_running_jobs": "Max concurrent jobs",
         "max_parallel_dnsx": "DNSx parallel slots",
+        "max_parallel_nmap": "Nmap parallel slots",
         "max_parallel_httpx": "HTTPx parallel slots",
         "max_parallel_ffuf": "FFUF parallel slots",
-        "max_parallel_waybackurls": "Waybackurls parallel slots",
-        "max_parallel_gau": "GAU parallel slots",
         "max_parallel_nuclei": "Nuclei parallel slots",
         "max_parallel_nikto": "Nikto parallel slots",
         "max_parallel_gowitness": "Screenshot parallel slots",
-        "subfinder_threads": "Subfinder threads",
-        "assetfinder_threads": "Assetfinder threads",
-        "findomain_threads": "Findomain threads",
-        "amass_timeout": "Amass timeout (seconds)",
     }
     for field, label in concurrency_fields.items():
         if field in values:

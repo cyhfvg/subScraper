@@ -159,7 +159,7 @@ def build_state_payload_paginated(page: int = 1, per_page: int = 50, full: bool 
     tool_info = {}
     for name in TOOLS.keys():
         try:
-            tool_info[name] = ("crtsh" if name == "crtsh" else (resolve_tool_path_cached(name) or ""))
+            tool_info[name] = resolve_tool_path_cached(name) or ""
         except Exception:
             tool_info[name] = ""
     

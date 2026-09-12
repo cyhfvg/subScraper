@@ -5,16 +5,16 @@
           <div class="card">
             <h3>Start New Recon</h3>
             <form id="launch-form">
-              <label for="launch-domain">Domain(s) / TLD(s)
-                <textarea id="launch-domain" name="domain" rows="4" placeholder="example.com&#10;*.test.com, *.corp.com&#10;*.subdomain.example.*" required aria-required="true" aria-describedby="domain-help"></textarea>
+              <label for="launch-domain">Domains / IPs / CIDRs
+                <textarea id="launch-domain" name="domain" rows="4" placeholder="corp.local&#10;10.0.0.0/24&#10;192.168.1.10" required aria-required="true" aria-describedby="domain-help"></textarea>
                 <small id="domain-help" style="color: #94a3b8; font-size: 0.85rem; display: block; margin-top: 4px;">
-                  Enter one or more domains/wildcards. Separate with commas or newlines.
+                  One target per line or comma-separated. Domains get DNS brute; IPs/CIDRs go to port scan.
                 </small>
               </label>
-              <label for="launch-wordlist">Wordlist path (optional, ffuf)
+              <label for="launch-wordlist">Wordlist path (DNSx DNS brute + vhost enum)
                 <input id="launch-wordlist" type="text" name="wordlist" placeholder="/app/recon_data/wordlists/subdomains.txt" />
               </label>
-              <p class="muted">Leave blank to use Settings default. File must exist inside the container.</p>
+              <p class="muted">Leave blank to use Settings default. Required for intranet DNS brute and vhost enum.</p>
 
               <label for="launch-interval">Dashboard interval seconds
                 <input id="launch-interval" type="number" name="interval" min="5" />
@@ -30,11 +30,11 @@
           <div class="card">
             <h3>Quick Tips</h3>
             <ul class="tips">
-              <li>Enter a domain like <code>example.com</code> or use a wildcard suffix such as <code>example.*</code> to fan out across configured TLDs.</li>
-              <li>Prefix with <code>*.</code> to scan a sub-scope, e.g., <code>*.apps.example.com</code>.</li>
-              <li>Provide a wordlist path if you want ffuf vhost brute-forcing; leave it blank to skip ffuf automatically.</li>
-              <li>Jobs queue safely when worker slots are full. Configure concurrency limits in Settings.</li>
-              <li>Targets reuse the shared <code>state.json</code>, so reruns pick up where they left off.</li>
+              <li>Domain: DNS brute (dnsx) then port scan, live probe, vhost, screenshot, nuclei/nikto.</li>
+              <li>IP or CIDR: skip DNS brute, nmap service scan, then the web pipeline.</li>
+              <li>Set intranet DNS resolvers in Settings. Public DNS is usually unreachable.</li>
+              <li>Provide a wordlist for DNS brute and Host-header vhost enum.</li>
+              <li>Jobs queue when worker slots are full.</li>
             </ul>
           </div>
         </div>

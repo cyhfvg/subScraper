@@ -45,9 +45,7 @@ const SEVERITY_RANK = SEVERITY_SCALE.reduce((acc, label, idx) => {
   return acc;
 }, {});
 
-// API Key provider constants
-const AMASS_PROVIDERS = ['shodan', 'virustotal', 'securitytrails', 'censys', 'passivetotal', 'binaryedge', 'bevigil'];
-const SUBFINDER_SHARED_PROVIDERS = ['shodan', 'censys', 'virustotal', 'binaryedge', 'securitytrails', 'passivetotal'];
+
 
 function setView(target) {
   const next = target || 'overview';
@@ -126,34 +124,23 @@ const settingsInterval = document.getElementById('settings-interval');
 const settingsWildcardTlds = document.getElementById('settings-wildcard-tlds');
 const settingsSkipNikto = document.getElementById('settings-skip-nikto');
 const settingsEnableScreenshots = document.getElementById('settings-enable-screenshots');
-const settingsEnableAmass = document.getElementById('settings-enable-amass');
-const settingsAmassTimeout = document.getElementById('settings-amass-timeout');
 const settingsDnsResolvers = document.getElementById('settings-dns-resolvers');
 const settingsWordlistFile = document.getElementById('settings-wordlist-file');
 const settingsWordlistUpload = document.getElementById('settings-wordlist-upload');
 const settingsWordlistStatus = document.getElementById('settings-wordlist-status');
 
-const settingsEnableSubfinder = document.getElementById('settings-enable-subfinder');
-const settingsEnableAssetfinder = document.getElementById('settings-enable-assetfinder');
-const settingsEnableFindomain = document.getElementById('settings-enable-findomain');
-const settingsEnableSublist3r = document.getElementById('settings-enable-sublist3r');
-const settingsEnableCrtsh = document.getElementById('settings-enable-crtsh');
-const settingsEnableGithubSubdomains = document.getElementById('settings-enable-github-subdomains');
 const settingsEnableDnsx = document.getElementById('settings-enable-dnsx');
-const settingsEnableWaybackurls = document.getElementById('settings-enable-waybackurls');
-const settingsEnableGau = document.getElementById('settings-enable-gau');
+const settingsEnablePortScan = document.getElementById('settings-enable-port-scan');
+const settingsEnableVhostEnum = document.getElementById('settings-enable-vhost-enum');
 const settingsEnableJsScan = document.getElementById('settings-enable-js-scan');
 const settingsBundledNucleiTemplates = document.getElementById('settings-bundled-nuclei-templates');
-const settingsSubfinderThreads = document.getElementById('settings-subfinder-threads');
-const settingsAssetfinderThreads = document.getElementById('settings-assetfinder-threads');
-const settingsFindomainThreads = document.getElementById('settings-findomain-threads');
+const settingsPortScanPorts = document.getElementById('settings-port-scan-ports');
+const settingsVhostMaxTargets = document.getElementById('settings-vhost-max-targets');
 const settingsGlobalRateLimit = document.getElementById('settings-global-rate-limit');
 const settingsMaxJobs = document.getElementById('settings-max-jobs');
 const settingsDefaultToolWorkers = document.getElementById('settings-default-tool-workers');
 const settingsResetToolSlots = document.getElementById('settings-reset-tool-slots');
 
-// "Use this for every tool": drop the per-tool overrides so they follow the
-// Workers per tool setting.
 if (settingsResetToolSlots) {
   settingsResetToolSlots.addEventListener('click', () => {
     document.querySelectorAll('input[name^="max_parallel_"]').forEach(input => { input.value = 0; });
@@ -162,18 +149,10 @@ if (settingsResetToolSlots) {
     if (hint) hint.textContent = 'Overrides cleared - save to apply.';
   });
 }
-const settingsAmass = document.getElementById('settings-amass');
-const settingsSubfinder = document.getElementById('settings-subfinder');
-const settingsAssetfinder = document.getElementById('settings-assetfinder');
-const settingsFindomain = document.getElementById('settings-findomain');
-const settingsSublist3r = document.getElementById('settings-sublist3r');
-const settingsCrtsh = document.getElementById('settings-crtsh');
-const settingsGithubSubdomains = document.getElementById('settings-github-subdomains');
 const settingsDnsx = document.getElementById('settings-dnsx');
+const settingsNmap = document.getElementById('settings-nmap');
 const settingsHttpx = document.getElementById('settings-httpx');
 const settingsFFUF = document.getElementById('settings-ffuf');
-const settingsWaybackurls = document.getElementById('settings-waybackurls');
-const settingsGau = document.getElementById('settings-gau');
 const settingsNuclei = document.getElementById('settings-nuclei');
 const settingsNikto = document.getElementById('settings-nikto');
 const settingsGowitness = document.getElementById('settings-gowitness');
@@ -193,18 +172,10 @@ const settingsSummary = document.getElementById('settings-summary');
 const settingsSaveBtn = document.querySelector('#settings-form button[type="submit"]');
 console.log('[DEBUG] All DOM elements retrieved, settingsForm:', settingsForm ? 'found' : 'NULL', 'saveBtn:', settingsSaveBtn ? 'found' : 'NULL');
 const templateInputs = {
-  amass: document.getElementById('template-amass'),
-  subfinder: document.getElementById('template-subfinder'),
-  assetfinder: document.getElementById('template-assetfinder'),
-  findomain: document.getElementById('template-findomain'),
-  sublist3r: document.getElementById('template-sublist3r'),
-  crtsh: document.getElementById('template-crtsh'),
-  'github-subdomains': document.getElementById('template-github-subdomains'),
+  nmap: document.getElementById('template-nmap'),
   dnsx: document.getElementById('template-dnsx'),
   ffuf: document.getElementById('template-ffuf'),
   httpx: document.getElementById('template-httpx'),
-  waybackurls: document.getElementById('template-waybackurls'),
-  gau: document.getElementById('template-gau'),
   nuclei: document.getElementById('template-nuclei'),
   nikto: document.getElementById('template-nikto'),
   gowitness: document.getElementById('template-gowitness'),
@@ -233,18 +204,10 @@ const logSourceFilter = document.getElementById('log-source-filter');
 const logLevelFilter = document.getElementById('log-level-filter');
 const logClearFilters = document.getElementById('log-clear-filters');
 const STEP_SEQUENCE = [
-  { flag: 'amass_done', label: 'Amass' },
-  { flag: 'subfinder_done', label: 'Subfinder' },
-  { flag: 'assetfinder_done', label: 'Assetfinder' },
-  { flag: 'findomain_done', label: 'Findomain' },
-  { flag: 'sublist3r_done', label: 'Sublist3r' },
-  { flag: 'crtsh_done', label: 'crt.sh' },
-  { flag: 'github_subdomains_done', label: 'GitHub Subdomains' },
   { flag: 'dnsx_done', label: 'DNSx' },
-  { flag: 'ffuf_done', label: 'ffuf' },
+  { flag: 'port_scan_done', label: 'Port scan' },
   { flag: 'httpx_done', label: 'httpx' },
-  { flag: 'waybackurls_done', label: 'Waybackurls' },
-  { flag: 'gau_done', label: 'GAU' },
+  { flag: 'vhost_enum_done', label: 'vhost' },
   { flag: 'screenshots_done', label: 'Screenshots', skipWhen: () => latestConfig.enable_screenshots === false },
   { flag: 'nuclei_done', label: 'Nuclei' },
   { flag: 'js_scan_done', label: 'JS Scan', skipWhen: () => latestConfig.enable_js_scan === false },

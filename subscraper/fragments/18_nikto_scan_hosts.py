@@ -58,6 +58,11 @@ def _nikto_scan_hosts(subs: List[str], domain: str, config: Optional[Dict[str, A
 
 
 def make_subdomain_entry() -> Dict[str, Any]:
+    """新建主机资产记录.
+
+    Returns:
+        Dict[str, Any]: 含 ports/ip 的空记录.
+    """
     return {
         "sources": [],
         "httpx": None,
@@ -65,36 +70,50 @@ def make_subdomain_entry() -> Dict[str, Any]:
         "nikto": [],
         "screenshot": None,
         "scans": {},
+        "ports": [],
+        "ip": "",
     }
 
 
 def ensure_target_state(state: Dict[str, Any], domain: str) -> Dict[str, Any]:
+    """确保 targets[domain] 结构完整.
+
+    Args:
+        state: 全局状态.
+        domain: 目标标识.
+
+    Returns:
+        Dict[str, Any]: 该目标的 dict.
+    """
     targets = state.setdefault("targets", {})
     tgt = targets.setdefault(domain, {
         "subdomains": {},
-        "endpoints": [],  # Store discovered URLs from waybackurls and gau
+        "endpoints": [],
+        "web_urls": [],
         "flags": {
-            "amass_done": False,
-            "subfinder_done": False,
-            "assetfinder_done": False,
-            "findomain_done": False,
-            "sublist3r_done": False,
-            "ffuf_done": False,
+            "dns_brute_done": False,
+            "dnsx_done": False,
+            "port_scan_done": False,
             "httpx_done": False,
+            "vhost_enum_done": False,
             "screenshots_done": False,
             "nuclei_done": False,
             "js_scan_done": False,
             "nikto_done": False,
         }
     })
-    # Normalize missing keys
     tgt.setdefault("subdomains", {})
     tgt.setdefault("endpoints", [])
+    tgt.setdefault("web_urls", [])
     tgt.setdefault("flags", {})
     tgt.setdefault("options", {})
-    for k in ["amass_done", "subfinder_done", "assetfinder_done", "findomain_done", "sublist3r_done",
-              "ffuf_done", "httpx_done", "screenshots_done", "nuclei_done", "js_scan_done", "nikto_done"]:
+    for k in [
+        "dns_brute_done", "dnsx_done", "port_scan_done", "httpx_done", "vhost_enum_done",
+        "screenshots_done", "nuclei_done", "js_scan_done", "nikto_done",
+    ]:
         tgt["flags"].setdefault(k, False)
+    if tgt["flags"].pop("amass_done", None) and not tgt["flags"].get("dns_brute_done"):
+        tgt["flags"]["dns_brute_done"] = True
     for sub, entry in list(tgt["subdomains"].items()):
         if not isinstance(entry, dict):
             tgt["subdomains"][sub] = make_subdomain_entry()
@@ -105,7 +124,54 @@ def ensure_target_state(state: Dict[str, Any], domain: str) -> Dict[str, Any]:
         entry.setdefault("nikto", [])
         entry.setdefault("screenshot", None)
         entry.setdefault("scans", {})
+        entry.setdefault("ports", [])
+        entry.setdefault("ip", "")
     return tgt
+
+
+def reset_target_scan_progress(domain: str) -> None:
+    """
+    清空目标的 pipeline 完成标记与逐主机扫描结果, 下次任务从头执行各步骤.
+
+    保留已发现的子域名与来源, 只清掉导致步骤被跳过的 done 标记和 httpx/nuclei 等扫描产物.
+
+    Args:
+        domain: 目标域名.
+
+    Returns:
+        None.
+
+    Raises:
+        无. 读写下的异常记日志后返回.
+
+    调用示例:
+        reset_target_scan_progress("home.lab")
+    """
+    normalized = (domain or "").strip().lower()
+    if not normalized:
+        return
+    try:
+        state = load_state()
+        tgt = (state.get("targets") or {}).get(normalized)
+        if not tgt or not isinstance(tgt, dict):
+            return
+        flags = tgt.setdefault("flags", {})
+        for key in list(flags.keys()):
+            flags[key] = False
+        tgt["flags"] = flags
+        tgt.pop("js_scan", None)
+        for entry in (tgt.get("subdomains") or {}).values():
+            if not isinstance(entry, dict):
+                continue
+            entry["httpx"] = None
+            entry["nuclei"] = []
+            entry["nikto"] = []
+            entry["screenshot"] = None
+            entry["scans"] = {}
+        save_state(state)
+        log(f"Reset scan progress for {normalized}; next job will re-run all steps.")
+    except Exception as exc:
+        log(f"Failed to reset scan progress for {normalized}: {exc}", "error")
 
 
 def add_subdomains_to_state(state: Dict[str, Any], domain: str, subs: List[str], source: str) -> None:
@@ -327,17 +393,14 @@ def generate_html_dashboard(state: Optional[Dict[str, Any]] = None) -> None:
         html_parts.append(f"<h2>{domain}</h2>")
         html_parts.append(
             "<p>"
-            f"<span class='badge'>Subdomains: {len(subs)}</span>"
-            f"<span class='badge'>Amass: {'✅' if flags.get('amass_done') else '⏳'}</span>"
-            f"<span class='badge'>Subfinder: {'✅' if flags.get('subfinder_done') else '⏳'}</span>"
-            f"<span class='badge'>Assetfinder: {'✅' if flags.get('assetfinder_done') else '⏳'}</span>"
-            f"<span class='badge'>Findomain: {'✅' if flags.get('findomain_done') else '⏳'}</span>"
-            f"<span class='badge'>Sublist3r: {'✅' if flags.get('sublist3r_done') else '⏳'}</span>"
-            f"<span class='badge'>ffuf: {'✅' if flags.get('ffuf_done') else '⏳'}</span>"
-            f"<span class='badge'>httpx: {'✅' if flags.get('httpx_done') else '⏳'}</span>"
-            f"<span class='badge'>Screenshots: {'✅' if flags.get('screenshots_done') else '⏳'}</span>"
-            f"<span class='badge'>nuclei: {'✅' if flags.get('nuclei_done') else '⏳'}</span>"
-            f"<span class='badge'>nikto: {'✅' if flags.get('nikto_done') else '⏳'}</span>"
+            f"<span class='badge'>Hosts: {len(subs)}</span>"
+            f"<span class='badge'>DNSx: {'done' if flags.get('dnsx_done') else 'pending'}</span>"
+            f"<span class='badge'>Ports: {'done' if flags.get('port_scan_done') else 'pending'}</span>"
+            f"<span class='badge'>httpx: {'done' if flags.get('httpx_done') else 'pending'}</span>"
+            f"<span class='badge'>vhost: {'done' if flags.get('vhost_enum_done') else 'pending'}</span>"
+            f"<span class='badge'>Screenshots: {'done' if flags.get('screenshots_done') else 'pending'}</span>"
+            f"<span class='badge'>nuclei: {'done' if flags.get('nuclei_done') else 'pending'}</span>"
+            f"<span class='badge'>nikto: {'done' if flags.get('nikto_done') else 'pending'}</span>"
             "</p>"
         )
 

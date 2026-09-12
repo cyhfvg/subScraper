@@ -237,7 +237,7 @@ def get_tool_installation_instructions(tool: str) -> str:
         lines.append(f"Note: {TOOL_NOTES[tool]}")
     lines.append("")
 
-    if tool == "crtsh" or not TOOL_PACKAGES.get(tool):
+    if not TOOL_PACKAGES.get(tool):
         lines.append("Nothing to install for this tool.")
         docs = TOOL_DOCS.get(tool)
         if docs:
@@ -322,10 +322,6 @@ def ensure_tool_installed(tool: str) -> bool:
     rather than attempted and failed.
     Returns True if the tool is usable afterwards.
     """
-    if tool == "crtsh":
-        TOOLS[tool] = "crtsh"  # virtual, API-based
-        return True
-
     resolved = resolve_tool_path_cached(tool)
     if resolved:
         TOOLS[tool] = resolved
@@ -371,12 +367,12 @@ def tool_status_snapshot(include_instructions: bool = True) -> Dict[str, Any]:
     info = detect_platform()
     tools: List[Dict[str, Any]] = []
     for name in TOOLS.keys():
-        path = "crtsh" if name == "crtsh" else (resolve_tool_path_cached(name) or "")
+        path = resolve_tool_path_cached(name) or ""
         entry: Dict[str, Any] = {
             "tool": name,
             "installed": bool(path),
             "path": path,
-            "virtual": name == "crtsh",
+            "virtual": False,
             "note": TOOL_NOTES.get(name, ""),
             "docs": TOOL_DOCS.get(name, ""),
         }

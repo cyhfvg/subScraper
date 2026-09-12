@@ -77,9 +77,25 @@ def apply_concurrency_limits(cfg: Dict[str, Any]) -> None:
 
 
 def is_subdomain_input(domain: str) -> bool:
-    if not domain:
+    """判断输入是否为多标签域名 (非 IP/CIDR).
+
+    Args:
+        domain: 规范化目标.
+
+    Returns:
+        bool: 仅当目标是 >=3 标签的域名时为 True. IP 不得被当成子域名.
+
+    Raises:
+        无.
+
+    调用示例:
+        is_subdomain_input("app.corp.local")  # True
+        is_subdomain_input("10.0.0.1")        # False
+    """
+    parsed = parse_scan_target(domain)
+    if parsed is None or parsed.kind != TargetKind.DOMAIN:
         return False
-    parts = [part for part in domain.split(".") if part]
+    parts = [part for part in parsed.normalized.split(".") if part]
     return len(parts) >= 3
 
 
@@ -117,6 +133,18 @@ def job_log_append(domain: Optional[str], text: Optional[str], source: str = "sy
 
 
 def default_config() -> Dict[str, Any]:
+    """返回内网扫描默认配置.
+
+    Returns:
+        Dict[str, Any]: 可写入 SQLite 的配置字典.
+
+    Raises:
+        无.
+
+    调用示例:
+        cfg = default_config()
+        cfg["enable_port_scan"]
+    """
     base = str(DATA_DIR.resolve())
     return {
         "data_dir": base,
@@ -127,50 +155,31 @@ def default_config() -> Dict[str, Any]:
         "default_wordlist": "",
         "skip_nikto_by_default": False,
         "enable_screenshots": True,
-        "enable_amass": True,
-        "amass_timeout": 600,
         "dns_resolvers": [],
-        "enable_subfinder": True,
-        "enable_assetfinder": True,
-        "enable_findomain": True,
-        "enable_sublist3r": True,
-        "enable_crtsh": True,
-        "enable_github_subdomains": True,
         "enable_dnsx": True,
-        "enable_waybackurls": True,
-        "enable_gau": True,
+        "enable_port_scan": True,
+        "enable_vhost_enum": True,
         "enable_js_scan": True,
+        "port_scan_ports": DEFAULT_PORT_SPEC,
+        "vhost_max_targets": 20,
         "use_bundled_nuclei_templates": True,
         "js_scan_max_files": 300,
         "js_scan_max_html_hosts": 60,
         "js_scan_workers": 8,
         "wildcard_tlds": ["com", "net", "org", "io", "co", "app", "dev", "us", "uk", "in", "de"],
-        "subfinder_threads": 32,
-        "assetfinder_threads": 10,
-        "findomain_threads": 40,
-        # Workers per tool. Each max_parallel_* of 0 (the default) inherits
-        # default_tool_workers, so one setting scales every tool at once.
         "default_tool_workers": DEFAULT_TOOL_WORKERS,
         "_tool_workers_migrated": False,
-        "max_parallel_amass": 0,
-        "max_parallel_subfinder": 0,
-        "max_parallel_assetfinder": 0,
-        "max_parallel_findomain": 0,
-        "max_parallel_sublist3r": 0,
-        "max_parallel_crtsh": 0,
-        "max_parallel_github_subdomains": 0,
         "max_parallel_dnsx": 0,
+        "max_parallel_nmap": 0,
         "max_parallel_ffuf": 0,
         "max_parallel_httpx": 0,
-        "max_parallel_waybackurls": 0,
-        "max_parallel_gau": 0,
         "max_parallel_gowitness": 0,
         "max_parallel_nuclei": 0,
         "max_parallel_nikto": 0,
         "max_running_jobs": 1,
         "global_rate_limit": 0.0,
         "tool_flag_templates": {name: "" for name in TEMPLATE_AWARE_TOOLS},
-        "tool_binary_paths": {},  # Custom binary paths for tools
+        "tool_binary_paths": {},
         "dynamic_mode_enabled": False,
         "dynamic_mode_base_jobs": 1,
         "dynamic_mode_max_jobs": 10,

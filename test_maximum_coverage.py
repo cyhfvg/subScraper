@@ -40,69 +40,6 @@ with patch('main.ensure_dirs'), \
 class TestAllToolWrappers:
     """Test all tool execution wrapper functions"""
     
-    def test_amass_enum_success(self):
-        """Test amass enumeration wrapper"""
-        domain = 'example.com'
-        output_file = '/tmp/amass_out.json'
-        
-        with patch('main.check_tool', return_value=True), \
-             patch('main.apply_rate_limit'), \
-             patch('subprocess.run') as mock_run:
-            mock_run.return_value = Mock(returncode=0, stdout='', stderr='')
-            
-            # Test the wrapper function exists and handles tool execution
-            result = main.amass_enum(domain, output_file, timeout=60)
-            
-            # Should return something (success indicator or subdomains list)
-            assert result is not None or result == []
-    
-    def test_subfinder_enum(self):
-        """Test subfinder enumeration"""
-        domain = 'example.com'
-        threads = 10
-        
-        with patch('subprocess.run') as mock_run:
-            mock_run.return_value = Mock(returncode=0, stdout=b'sub.example.com\n')
-            
-            # Test subfinder wrapper
-            result = main.subfinder_enum(domain, threads)
-            assert result is not None
-    
-    def test_assetfinder_enum(self):
-        """Test assetfinder enumeration"""
-        domain = 'example.com'
-        
-        with patch('subprocess.run') as mock_run:
-            mock_run.return_value = Mock(returncode=0, stdout=b'api.example.com\n')
-            
-            result = main.assetfinder_enum(domain)
-            assert result is not None
-    
-    def test_findomain_enum(self):
-        """Test findomain enumeration"""
-        domain = 'example.com'
-        
-        with patch('subprocess.run') as mock_run:
-            mock_run.return_value = Mock(returncode=0, stdout=b'www.example.com\n')
-            
-            result = main.findomain_enum(domain)
-            assert result is not None
-    
-    def test_crtsh_enum(self):
-        """Test crt.sh API enumeration"""
-        domain = 'example.com'
-        
-        mock_response = json.dumps([
-            {"name_value": "*.example.com"},
-            {"name_value": "api.example.com"}
-        ]).encode()
-        
-        with patch('main.urlopen') as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value.read.return_value = mock_response
-            
-            result = main.crtsh_enum(domain)
-            assert result is not None
-    
     def test_dnsx_verify(self):
         """Test dnsx DNS verification"""
         subdomains = ['sub1.example.com', 'sub2.example.com']
@@ -159,25 +96,6 @@ class TestAllToolWrappers:
             result = main.ffuf_subdomain_brute(domain, wordlist, output_file)
             assert True
     
-    def test_waybackurls_gather(self):
-        """Test waybackurls URL gathering"""
-        domain = 'example.com'
-        
-        with patch('subprocess.run') as mock_run:
-            mock_run.return_value = Mock(returncode=0, stdout=b'https://example.com/path\n')
-            
-            result = main.waybackurls_gather(domain)
-            assert result is not None
-    
-    def test_gau_gather(self):
-        """Test gau URL gathering"""
-        domain = 'example.com'
-        
-        with patch('subprocess.run') as mock_run:
-            mock_run.return_value = Mock(returncode=0, stdout=b'https://example.com/api\n')
-            
-            result = main.gau_gather(domain)
-            assert result is not None
     
     def test_gowitness_screenshot(self):
         """Test gowitness screenshot capture"""
@@ -228,21 +146,6 @@ class TestPipelineStepExecution:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
     
-    def test_run_amass_step(self):
-        """Test running amass step"""
-        domain = 'example.com'
-        
-        with patch('main.amass_enum', return_value=['sub.example.com']):
-            result = main.run_amass_step(domain, {})
-            assert result is not None
-    
-    def test_run_subfinder_step(self):
-        """Test running subfinder step"""
-        domain = 'example.com'
-        
-        with patch('main.subfinder_enum', return_value=['api.example.com']):
-            result = main.run_subfinder_step(domain, {})
-            assert result is not None
     
     def test_run_httpx_step(self):
         """Test running httpx step"""
@@ -294,7 +197,7 @@ class TestFullPipelineExecution:
         domain = 'test.com'
         
         # Mock all tool executions
-        with patch('main.amass_enum', return_value=['sub.test.com']), \
+        with patch('main.dnsx_collect_subdomains', return_value=['sub.test.com']), \
              patch('main.subfinder_enum', return_value=['api.test.com']), \
              patch('main.httpx_probe'), \
              patch('main.nuclei_scan'), \
@@ -590,7 +493,7 @@ class TestErrorPaths:
         with patch('subprocess.run', side_effect=subprocess.TimeoutExpired('cmd', 10)):
             # Should handle timeout gracefully
             try:
-                result = main.amass_enum('test.com', '/tmp/out.json', timeout=1)
+                result = main.dnsx_brute('test.com', wordlist='/tmp/out.txt')
             except Exception:
                 pass  # Expected to handle or raise
     
@@ -618,7 +521,7 @@ class TestErrorPaths:
         
         # Should handle missing files gracefully
         try:
-            result = main.amass_collect_subdomains(str(nonexistent))
+            result = main.dnsx_collect_subdomains('test.com', wordlist=str(nonexistent))
         except Exception:
             pass  # Expected
 

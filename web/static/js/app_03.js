@@ -466,22 +466,14 @@ function renderTargets(targets) {
     }).join('');
     
     const badges = `
-      <span class="badge">Subdomains: ${totalSubdomainCount}</span>
-      <span class="badge">Amass: ${flags.amass_done ? '✅' : '⏳'}</span>
-      <span class="badge">Subfinder: ${flags.subfinder_done ? '✅' : '⏳'}</span>
-      <span class="badge">Assetfinder: ${flags.assetfinder_done ? '✅' : '⏳'}</span>
-      <span class="badge">Findomain: ${flags.findomain_done ? '✅' : '⏳'}</span>
-      <span class="badge">Sublist3r: ${flags.sublist3r_done ? '✅' : '⏳'}</span>
-      <span class="badge">crt.sh: ${flags.crtsh_done ? '✅' : '⏳'}</span>
-      <span class="badge">GitHub: ${flags.github_subdomains_done ? '✅' : '⏳'}</span>
-      <span class="badge">DNSx: ${flags.dnsx_done ? '✅' : '⏳'}</span>
-      <span class="badge">ffuf: ${flags.ffuf_done ? '✅' : '⏳'}</span>
-      <span class="badge">httpx: ${flags.httpx_done ? '✅' : '⏳'}</span>
-      <span class="badge">Wayback: ${flags.waybackurls_done ? '✅' : '⏳'}</span>
-      <span class="badge">GAU: ${flags.gau_done ? '✅' : '⏳'}</span>
-      <span class="badge">Screenshots: ${flags.screenshots_done ? '✅' : '⏳'}</span>
-      <span class="badge">nuclei: ${flags.nuclei_done ? '✅' : '⏳'}</span>
-      <span class="badge">nikto: ${flags.nikto_done ? '✅' : '⏳'}</span>
+      <span class="badge">Hosts: ${totalSubdomainCount}</span>
+      <span class="badge">DNSx: ${flags.dnsx_done ? 'done' : 'pending'}</span>
+      <span class="badge">Ports: ${flags.port_scan_done ? 'done' : 'pending'}</span>
+      <span class="badge">httpx: ${flags.httpx_done ? 'done' : 'pending'}</span>
+      <span class="badge">vhost: ${flags.vhost_enum_done ? 'done' : 'pending'}</span>
+      <span class="badge">Screenshots: ${flags.screenshots_done ? 'done' : 'pending'}</span>
+      <span class="badge">nuclei: ${flags.nuclei_done ? 'done' : 'pending'}</span>
+      <span class="badge">nikto: ${flags.nikto_done ? 'done' : 'pending'}</span>
     `;
     
     const tableId = `targets-table-${escapeHtml(domain).replace(/[^a-zA-Z0-9]/g, '-')}`;

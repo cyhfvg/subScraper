@@ -324,26 +324,13 @@ def _resolve_tool_path(tool: str) -> Optional[str]:
 #   - httpx via apt/pip installs the *Python* httpx CLI, not ProjectDiscovery's.
 #   - nikto/github-subdomains have no trustworthy Windows package.
 TOOL_PACKAGES: Dict[str, Dict[str, str]] = {
-    "amass": {"apt": "amass", "snap": "amass", "brew": "amass", "pacman": "amass",
-              "go": "github.com/owasp-amass/amass/v3/...@latest"},
-    "subfinder": {"apt": "subfinder", "brew": "subfinder", "pacman": "subfinder",
-                  "go": "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"},
-    "assetfinder": {"apt": "assetfinder", "brew": "assetfinder",
-                    "go": "github.com/tomnomnom/assetfinder@latest"},
-    "findomain": {"apt": "findomain", "brew": "findomain", "cargo": "findomain"},
-    "sublist3r": {"apt": "sublist3r", "pip": "sublist3r"},
-    "crtsh": {},  # API-only virtual tool
-    "github-subdomains": {"go": "github.com/gwen001/github-subdomains@latest"},
     "dnsx": {"apt": "dnsx", "brew": "dnsx",
              "go": "github.com/projectdiscovery/dnsx/cmd/dnsx@latest"},
+    "nmap": {"apt": "nmap", "dnf": "nmap", "yum": "nmap", "pacman": "nmap",
+             "zypper": "nmap", "apk": "nmap", "brew": "nmap", "choco": "nmap"},
     "ffuf": {"apt": "ffuf", "brew": "ffuf", "pacman": "ffuf", "dnf": "ffuf",
              "go": "github.com/ffuf/ffuf/v2@latest"},
-    # Homebrew's core "httpx" formula is the Python HTTP client, a different
-    # tool that this app rejects on purpose - so only go install is offered.
     "httpx": {"go": "github.com/projectdiscovery/httpx/cmd/httpx@latest"},
-    "waybackurls": {"apt": "waybackurls", "brew": "waybackurls",
-                    "go": "github.com/tomnomnom/waybackurls@latest"},
-    "gau": {"apt": "gau", "brew": "gau", "go": "github.com/lc/gau/v2/cmd/gau@latest"},
     "nuclei": {"apt": "nuclei", "brew": "nuclei", "pacman": "nuclei",
                "go": "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"},
     "nikto": {"apt": "nikto", "brew": "nikto", "dnf": "nikto", "pacman": "nikto"},
@@ -352,32 +339,23 @@ TOOL_PACKAGES: Dict[str, Dict[str, str]] = {
 }
 
 TOOL_DOCS = {
-    "amass": "https://github.com/owasp-amass/amass",
-    "subfinder": "https://github.com/projectdiscovery/subfinder",
-    "assetfinder": "https://github.com/tomnomnom/assetfinder",
-    "findomain": "https://github.com/Findomain/Findomain",
-    "sublist3r": "https://github.com/aboul3la/Sublist3r",
-    "crtsh": "https://crt.sh",
-    "github-subdomains": "https://github.com/gwen001/github-subdomains",
     "dnsx": "https://github.com/projectdiscovery/dnsx",
+    "nmap": "https://nmap.org",
     "ffuf": "https://github.com/ffuf/ffuf",
     "httpx": "https://github.com/projectdiscovery/httpx",
-    "waybackurls": "https://github.com/tomnomnom/waybackurls",
-    "gau": "https://github.com/lc/gau",
     "nuclei": "https://github.com/projectdiscovery/nuclei",
     "nikto": "https://github.com/sullo/nikto",
     "gowitness": "https://github.com/sensepost/gowitness",
 }
 
 TOOL_NOTES = {
-    "crtsh": "Virtual tool - queries the crt.sh API over HTTPS. Nothing to install.",
-    "nikto": "Needs Perl. On Windows install Strawberry Perl, then run nikto.pl from a clone of the repo.",
+    "nikto": "Needs Perl and XML::Writer (apt: libxml-writer-perl; cpan XML::Writer). On Windows install Strawberry Perl, then run nikto.pl from a clone of the repo.",
     "gowitness": "Needs Chrome or Chromium installed for screenshots.",
-    "github-subdomains": "Works best with a GitHub API token (Settings -> API keys).",
     "httpx": ("Must be ProjectDiscovery's httpx. The Python package and Homebrew's core 'httpx' "
               "formula are a different tool and are rejected on purpose - install with go, or "
               "'brew install projectdiscovery/tap/httpx'."),
-    "sublist3r": "Python tool - installed with pip, not with a system package manager on most distros.",
+    "nmap": "Used for intranet port scan and service detection. Install via the OS package manager.",
+    "dnsx": "Intranet DNS brute and live-host verification. Provide a wordlist and local resolvers.",
 }
 
 # Managers that need root on Unix. brew refuses to run as root by design.

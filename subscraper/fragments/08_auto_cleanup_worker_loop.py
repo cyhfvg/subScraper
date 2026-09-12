@@ -222,18 +222,23 @@ def bool_from_value(value: Any, default: bool = False) -> bool:
 
 
 def _sanitize_domain_input(value: str) -> str:
-    if not value:
-        return ""
-    cleaned = value.strip().lower()
-    if not cleaned:
-        return ""
-    cleaned = cleaned.replace("https://", "").replace("http://", "")
-    for delimiter in ("?", "#", "/"):
-        if delimiter in cleaned:
-            cleaned = cleaned.split(delimiter, 1)[0]
-    cleaned = cleaned.strip()
-    cleaned = re.sub(r"\s+", "", cleaned)
-    return cleaned
+    """规范化用户输入, 保留 IPv4 CIDR 前缀长度.
+
+    Args:
+        value: 域名 / IP / CIDR / URL.
+
+    Returns:
+        str: 规范化目标; 无法识别时返回空串.
+
+    Raises:
+        无.
+
+    调用示例:
+        _sanitize_domain_input("https://10.0.0.8:8443/")  # "10.0.0.8"
+        _sanitize_domain_input("10.1.0.0/24")             # "10.1.0.0/24"
+    """
+    parsed = parse_scan_target(value)
+    return parsed.normalized if parsed else ""
 
 
 def _parse_multiple_domains(value: str) -> List[str]:
@@ -331,7 +336,7 @@ def _normalize_resolver_list(value: Any) -> List[str]:
 
 def write_resolvers_file(resolvers: List[str]) -> Path:
     """
-    把 resolver 列表写到 recon_data/resolvers.txt, 供 amass -rf / dnsx -rL 使用.
+    把 resolver 列表写到 recon_data/resolvers.txt, 供 dnsx -r 使用.
 
     Args:
         resolvers: 已规范化的 DNS 地址.

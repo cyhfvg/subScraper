@@ -133,10 +133,10 @@ class TestInstallPlans:
     def test_unavailable_package_is_not_offered(self, monkeypatch):
         fake_platform(monkeypatch, "Linux", {"apt-get", "sudo", "go"},
                       os_release={"ID": "ubuntu", "ID_LIKE": "debian"}, sudo_ok=True)
-        # Ubuntu has no 'gau' package; go install must be the runnable path.
+        # Ubuntu has no 'ffuf' via this fake apt; go install must be the runnable path.
         monkeypatch.setattr(main, "_package_available",
                             lambda manager, package: manager != "apt")
-        plan = main.build_install_plan("gau")
+        plan = main.build_install_plan("ffuf")
         apt_step = next(step for step in plan if step["manager"] == "apt")
         go_step = next(step for step in plan if step["manager"] == "go")
         assert apt_step["can_run_unattended"] is False
@@ -157,10 +157,9 @@ class TestInstallPlans:
         assert "pip" not in main.TOOL_PACKAGES["httpx"]
         assert "apt" not in main.TOOL_PACKAGES["httpx"]
 
-    def test_crtsh_is_virtual(self, monkeypatch):
-        fake_platform(monkeypatch, "Linux", {"apt-get"}, os_release={"ID": "debian"})
-        assert main.build_install_plan("crtsh") == []
-        assert main.ensure_tool_installed("crtsh") is True
+    def test_nmap_is_a_real_tool(self):
+        assert "nmap" in main.TOOLS
+        assert "nmap" in main.TOOL_PACKAGES
 
     def test_every_tool_has_a_doc_link(self):
         for tool in main.TOOLS:
@@ -180,21 +179,20 @@ class TestInstructions:
     def test_macos_instructions_do_not_lead_with_apt(self, monkeypatch):
         fake_platform(monkeypatch, "Darwin", {"brew"})
         monkeypatch.setattr(main, "_package_available", lambda manager, package: True)
-        text = main.get_tool_installation_instructions("amass")
+        text = main.get_tool_installation_instructions("dnsx")
         assert "macOS" in text
-        assert text.index("brew install amass") < text.index("Docs")
+        assert text.index("brew install dnsx") < text.index("Docs")
         assert "sudo apt-get" not in text
 
     def test_missing_go_is_called_out(self, monkeypatch):
         fake_platform(monkeypatch, "Windows", set())
-        text = main.get_tool_installation_instructions("gau")
+        text = main.get_tool_installation_instructions("httpx")
         assert "Go is not installed" in text
         assert "go.dev/dl" in text
 
     def test_virtual_tool_says_nothing_to_install(self, monkeypatch):
-        fake_platform(monkeypatch, "Darwin", {"brew"})
-        text = main.get_tool_installation_instructions("crtsh")
-        assert "Nothing to install" in text
+        text = main.get_tool_installation_instructions("nmap")
+        assert "nmap" in text.lower()
 
 
 class TestUnattendedInstallSafety:
@@ -353,8 +351,8 @@ class TestToolingEndpoints:
         assert payload["success"] is True
         assert payload["platform"]["system"] in ("macos", "linux", "windows")
         assert payload["total_count"] == len(main.TOOLS)
-        crtsh = next(tool for tool in payload["tools"] if tool["tool"] == "crtsh")
-        assert crtsh["installed"] is True and crtsh["virtual"] is True
+        nmap = next(tool for tool in payload["tools"] if tool["tool"] == "nmap")
+        assert nmap["virtual"] is False
 
     def test_missing_tool_carries_instructions(self, http_api, monkeypatch):
         monkeypatch.setattr(main, "_resolve_tool_path", lambda tool: None)
@@ -493,15 +491,14 @@ class TestWorkflowDiagram:
 
 
     def test_phases_cover_every_pipeline_step(self):
-        diagram_steps = {"amass", "subfinder", "assetfinder", "findomain", "sublist3r",
-                         "crtsh", "github-subdomains", "dnsx", "httpx", "screenshots",
-                         "nuclei", "jsscan", "nikto"}
+        diagram_steps = {"dnsx", "port_scan", "httpx", "vhost_enum",
+                         "screenshots", "nuclei", "jsscan", "nikto"}
         assert set(main.PIPELINE_STEPS) == diagram_steps
 
     def test_manual_only_tools_are_not_pipeline_steps(self):
-        assert "ffuf" not in main.PIPELINE_STEPS
         assert "waybackurls" not in main.PIPELINE_STEPS
         assert "gau" not in main.PIPELINE_STEPS
+        assert "subfinder" not in main.PIPELINE_STEPS
 
 
 
@@ -555,6 +552,5 @@ class TestToolPathCaching:
         monkeypatch.setattr(main, "_resolve_tool_path", lambda tool: calls.append(tool) or "/bin/x")
         for _ in range(3):
             for name in main.TOOLS:
-                if name != "crtsh":
-                    main.resolve_tool_path_cached(name)
-        assert len(calls) == len(main.TOOLS) - 1     # one probe per tool, not per poll
+                main.resolve_tool_path_cached(name)
+        assert len(calls) == len(main.TOOLS)
